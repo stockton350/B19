@@ -316,10 +316,13 @@ function onPTTDown() {
   if (phase === 'speaking') { stopSpeaking(); setPhase('idle'); return; }
   if (phase !== 'idle') return;
 
-  // Unlock speechSynthesis on iOS during the user gesture so async speak() works later
-  const unlock = new SpeechSynthesisUtterance('');
-  unlock.volume = 0;
-  window.speechSynthesis.speak(unlock);
+  // Keep iOS audio session alive during STT + LLM wait.
+  // Speak a very slow, nearly-silent utterance so the session stays open
+  // long enough for the real response to speak after the async chain.
+  const keepAlive = new SpeechSynthesisUtterance('waiting waiting waiting waiting waiting');
+  keepAlive.rate   = 0.1;
+  keepAlive.volume = 0.001;
+  window.speechSynthesis.speak(keepAlive);
 
   pttHeld = true;
   setPhase('listening');
