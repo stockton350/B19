@@ -54,6 +54,19 @@ function unlockAudio() {
   } catch {}
 }
 
+let speechUnlocked = false;
+function unlockSpeech() {
+  if (speechUnlocked || !window.speechSynthesis) return;
+  speechUnlocked = true;
+  unlockAudio();
+  const u = new SpeechSynthesisUtterance(' ');
+  u.volume = 0.001;
+  u.rate   = 0.1;
+  const voices = window.speechSynthesis.getVoices();
+  u.voice = voices.find(v => v.name === cfg.voice) ?? voices.find(v => v.lang.startsWith('en')) ?? null;
+  window.speechSynthesis.speak(u);
+}
+
 function boot() {
   buildBars();
   restoreSettings();
@@ -210,6 +223,7 @@ function onInit() {
   cfg.responseLength = document.querySelector('.rl-btn.on')?.dataset.rl || 'CONCISE';
   cfg.voice          = $('settings-voice').value || 'en-US-female';
   save();
+  unlockSpeech();
   showLoading();
 }
 
@@ -316,6 +330,7 @@ async function onSend() {
   const input = $('text-input');
   const text = input.value.trim();
   if (!text || phase !== 'idle') return;
+  unlockSpeech();
 
   input.value = '';
   input.style.height = '';
@@ -357,6 +372,8 @@ function onPTTDown() {
   if (mode !== 'ptt') return;
   if (phase === 'speaking') { stopSpeaking(); setPhase('idle'); return; }
   if (phase !== 'idle') return;
+
+  unlockSpeech();
 
   // On iOS, speechSynthesis called from async callbacks requires the audio
   // session to be active. Queue a silent keep-alive utterance during the
