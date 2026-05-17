@@ -77,12 +77,12 @@ function boot() {
   setupViewport();
   unlockAudio();
 
-  // Disable PTT if speech recognition unavailable (e.g. HTTP on iOS)
+  // Disable PTT/AUTO pills if speech recognition unavailable (e.g. HTTP on iOS)
   if (!isSupported()) {
-    const modeBtn = $('mode-btn');
-    modeBtn.disabled = true;
-    modeBtn.title = 'Requires HTTPS';
-    modeBtn.style.opacity = '0.3';
+    document.querySelectorAll('.mode-pill[data-mode="ptt"], .mode-pill[data-mode="auto"]').forEach(p => {
+      p.disabled = true;
+      p.title = 'Requires HTTPS';
+    });
   }
 
   cfg.apiKey ? showLoading() : showSettings();
@@ -199,8 +199,9 @@ function setupListeners() {
   $('init-btn').addEventListener('click', onInit);
   $('gear-btn').addEventListener('click', showSettings);
   $('update-btn').addEventListener('click', checkForUpdate);
-  $('mode-btn').addEventListener('click', toggleMode);
   $('menu-btn')?.addEventListener('click', openSidebar);
+  document.querySelectorAll('.mode-pill').forEach(btn =>
+    btn.addEventListener('click', () => setMode(btn.dataset.mode)));
   $('sidebar-overlay')?.addEventListener('click', closeSidebar);
   $('new-session-btn')?.addEventListener('click', () => { startNewSession(); renderAllMessages(); closeSidebar(); });
 
@@ -317,14 +318,9 @@ function showUpdateHint(msg) {
 }
 
 // ── Mode toggle ───────────────────────────────────────────────────────────
-function toggleMode() {
-  setMode(mode === 'text' ? 'ptt' : mode === 'ptt' ? 'auto' : 'text');
-}
-
 function setMode(m, persist = true) {
   const prevMode = mode;
 
-  // Clean up AUTO mode before leaving it
   if (prevMode === 'auto' && m !== 'auto') {
     stopListening();
     stopMicViz();
@@ -332,29 +328,28 @@ function setMode(m, persist = true) {
   }
 
   mode = m;
-  const modeBtn = $('mode-btn');
+  dbg(`mode→${m}`);
+
+  // Highlight the correct pill
+  document.querySelectorAll('.mode-pill').forEach(p =>
+    p.classList.toggle('on', p.dataset.mode === m));
+
   const textArea = $('text-area');
   const pttArea  = $('ptt-area');
 
   if (m === 'text') {
     textArea.style.display = '';
     pttArea.style.display  = 'none';
-    modeBtn.textContent    = '[ MIC ]';
-    modeBtn.classList.remove('active');
     if (phase === 'speaking') stopSpeaking();
     setPhase('idle');
   } else if (m === 'ptt') {
     textArea.style.display = 'none';
     pttArea.style.display  = '';
-    modeBtn.textContent    = '[ AUTO ]';
-    modeBtn.classList.add('active');
     setPhase('idle');
     animateIdle();
   } else if (m === 'auto') {
     textArea.style.display = 'none';
     pttArea.style.display  = '';
-    modeBtn.textContent    = '[ TEXT ]';
-    modeBtn.classList.add('active');
     setPhase('idle');
     startAutoListen();
   }
@@ -414,8 +409,8 @@ function setTextInputEnabled(enabled) {
 
 // ── PTT mode ──────────────────────────────────────────────────────────────
 function onPTTDown() {
+  dbg(`↓ m=${mode} ph=${phase}`);
   if (mode === 'auto') {
-    // Tap to interrupt current speech and restart listening
     if (phase === 'speaking') {
       window.speechSynthesis.cancel();
       stopMicViz();
@@ -424,9 +419,9 @@ function onPTTDown() {
     }
     return;
   }
-  if (mode !== 'ptt') return;
+  if (mode !== 'ptt') { dbg(`↓ skip:not-ptt`); return; }
   if (phase === 'speaking') { stopSpeaking(); setPhase('idle'); return; }
-  if (phase !== 'idle') return;
+  if (phase !== 'idle') { dbg(`↓ skip:ph=${phase}`); return; }
 
   unlockSpeech();
 
@@ -454,24 +449,29 @@ function onPTTDown() {
   pttHeld = true;
   setPhase('listening');
   startMicViz();
+  dbg('STT:start');
 
   startListening({
     onResult: async transcript => {
+      dbg(`STT:result "${transcript.slice(0, 20)}"`);
       stopMicViz();
       await processPTTResult(transcript);
     },
     onError: err => {
+      dbg(`STT:err ${err}`);
       stopMicViz();
       setPTTStatus(`> ERROR: ${err.toUpperCase()}`);
       setTimeout(() => setPhase('idle'), 2000);
     },
     onEnd: () => {
+      dbg(`STT:end ph=${phase}`);
       if (phase === 'listening') { stopMicViz(); setPhase('idle'); }
     },
   });
 }
 
 function onPTTUp() {
+  dbg(`↑ m=${mode} held=${pttHeld} ph=${phase}`);
   if (mode !== 'ptt' || !pttHeld) return;
   pttHeld = false;
   if (phase === 'listening') stopListening();
@@ -788,6 +788,12 @@ function stopMicViz() {
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────
+function dbg(msg) {
+  const el = $('dbg-line');
+  if (el) el.textContent = msg;
+  console.log('[B19]', msg);
+}
+
 function setProgress(n) {
   $('progress-fill').style.width = n + '%';
   $('progress-pct').textContent  = n + '%';
