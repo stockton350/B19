@@ -14,7 +14,7 @@ const SESSIONS_KEY = 'b19_sessions';
 const BAR_COUNT = 28;
 
 // ── App State ─────────────────────────────────────────────────────────────
-let mode  = 'text'; // 'text' | 'ptt'
+let mode  = 'text'; // 'text' | 'ptt' | 'auto'
 let phase = 'idle'; // 'idle' | 'listening' | 'thinking' | 'speaking'
 let messages = [];
 let currentSession = null;
@@ -147,9 +147,10 @@ function restoreSettings() {
     window.speechSynthesis.onvoiceschanged = populateVoices;
   }
 
-  // Migrate old 'AUTO'/'PTT' values to new scheme
   const savedMode = cfg.mode;
-  mode = (savedMode === 'ptt' || savedMode === 'PTT') ? 'ptt' : 'text';
+  mode = (savedMode === 'ptt' || savedMode === 'PTT') ? 'ptt'
+       : savedMode === 'auto' ? 'auto'
+       : 'text';
 }
 
 // ── Screen routing ────────────────────────────────────────────────────────
@@ -317,10 +318,19 @@ function showUpdateHint(msg) {
 
 // ── Mode toggle ───────────────────────────────────────────────────────────
 function toggleMode() {
-  setMode(mode === 'text' ? 'ptt' : 'text');
+  setMode(mode === 'text' ? 'ptt' : mode === 'ptt' ? 'auto' : 'text');
 }
 
 function setMode(m, persist = true) {
+  const prevMode = mode;
+
+  // Clean up AUTO mode before leaving it
+  if (prevMode === 'auto' && m !== 'auto') {
+    stopListening();
+    stopMicViz();
+    window.speechSynthesis.cancel();
+  }
+
   mode = m;
   const modeBtn = $('mode-btn');
   const textArea = $('text-area');
@@ -331,16 +341,22 @@ function setMode(m, persist = true) {
     pttArea.style.display  = 'none';
     modeBtn.textContent    = '[ MIC ]';
     modeBtn.classList.remove('active');
-    // Stop any ongoing speech if switching away from PTT
     if (phase === 'speaking') stopSpeaking();
     setPhase('idle');
-  } else {
+  } else if (m === 'ptt') {
+    textArea.style.display = 'none';
+    pttArea.style.display  = '';
+    modeBtn.textContent    = '[ AUTO ]';
+    modeBtn.classList.add('active');
+    setPhase('idle');
+    animateIdle();
+  } else if (m === 'auto') {
     textArea.style.display = 'none';
     pttArea.style.display  = '';
     modeBtn.textContent    = '[ TEXT ]';
     modeBtn.classList.add('active');
     setPhase('idle');
-    animateIdle();
+    startAutoListen();
   }
 
   if (persist) save();
@@ -398,6 +414,16 @@ function setTextInputEnabled(enabled) {
 
 // ── PTT mode ──────────────────────────────────────────────────────────────
 function onPTTDown() {
+  if (mode === 'auto') {
+    // Tap to interrupt current speech and restart listening
+    if (phase === 'speaking') {
+      window.speechSynthesis.cancel();
+      stopMicViz();
+      setPhase('idle');
+      startAutoListen();
+    }
+    return;
+  }
   if (mode !== 'ptt') return;
   if (phase === 'speaking') { stopSpeaking(); setPhase('idle'); return; }
   if (phase !== 'idle') return;
@@ -487,18 +513,109 @@ async function processPTTResult(transcript) {
   }
 }
 
+// ── AUTO mode ─────────────────────────────────────────────────────────────
+function startAutoListen() {
+  if (mode !== 'auto' || phase !== 'idle') return;
+
+  setPhase('listening');
+  startMicViz();
+
+  startListening({
+    onResult: async transcript => {
+      stopMicViz();
+      await processAutoResult(transcript);
+    },
+    onError: err => {
+      stopMicViz();
+      if (mode !== 'auto') return;
+      setPTTStatus(`> ERROR: ${err.toUpperCase()}`);
+      setPhase('idle');
+      setTimeout(() => { if (mode === 'auto') startAutoListen(); }, 2000);
+    },
+    onEnd: () => {
+      if (mode !== 'auto' || phase !== 'listening') return;
+      stopMicViz();
+      setPhase('idle');
+      // No result came — restart after a brief pause
+      setTimeout(() => { if (mode === 'auto') startAutoListen(); }, 400);
+    },
+  });
+}
+
+async function processAutoResult(transcript) {
+  if (mode !== 'auto') return;
+
+  addBubble('user', transcript);
+  messages.push({ role: 'user', content: transcript });
+  trimHistory();
+
+  setPhase('thinking');
+
+  // Keep audio session alive on iOS while the async LLM call runs
+  try {
+    const ka = new SpeechSynthesisUtterance('waiting waiting waiting waiting waiting waiting waiting waiting waiting waiting');
+    ka.volume = 0.001;
+    ka.rate   = 0.1;
+    window.speechSynthesis.speak(ka);
+  } catch {}
+
+  try {
+    const maxTokens = RESPONSE_LENGTHS[cfg.responseLength] ?? 120;
+    const reply = await sendMessage(messages, cfg.persona, cfg.apiKey, maxTokens, null, cfg.responseLength);
+    messages.push({ role: 'assistant', content: reply });
+    addBubble('assistant', reply);
+    if (messages.length % 10 === 0) autoSave();
+
+    if (mode !== 'auto') return; // user switched away during LLM call
+
+    setPhase('speaking');
+    window.speechSynthesis.cancel();
+    const voices = window.speechSynthesis.getVoices();
+    const utter  = new SpeechSynthesisUtterance(reply);
+    utter.voice  = voices.find(v => v.name === cfg.voice) ?? voices.find(v => v.lang.startsWith('en')) ?? null;
+    utter.rate   = 1.05;
+    utter.volume = 1.0;
+    utter.lang   = 'en-US';
+    utter.onend  = () => {
+      if (mode !== 'auto') return;
+      setPhase('idle');
+      startAutoListen();
+    };
+    utter.onerror = e => {
+      if (e.error === 'interrupted' || e.error === 'canceled') {
+        if (mode === 'auto') { setPhase('idle'); startAutoListen(); }
+        return;
+      }
+      if (mode !== 'auto') return;
+      setPTTStatus(`> TTS ERR: ${e.error}`);
+      setTimeout(() => { if (mode === 'auto') { setPhase('idle'); startAutoListen(); } }, 3000);
+    };
+    window.speechSynthesis.speak(utter);
+  } catch (err) {
+    if (mode !== 'auto') return;
+    setPTTStatus(`> ERROR: ${err.message.slice(0, 30).toUpperCase()}`);
+    setTimeout(() => { if (mode === 'auto') { setPhase('idle'); startAutoListen(); } }, 2500);
+  }
+}
+
 // ── Phase / status ────────────────────────────────────────────────────────
 function setPhase(p) {
   phase = p;
 
-  if (mode === 'ptt') {
-    const labels = {
+  if (mode === 'ptt' || mode === 'auto') {
+    const pttLabels = {
       idle:      '> HOLD TO TALK',
       listening: '> LISTENING...',
       thinking:  '> THINKING...',
       speaking:  '> TAP TO STOP',
     };
-    setPTTStatus(labels[p] ?? '');
+    const autoLabels = {
+      idle:      '> STAND BY...',
+      listening: '> LISTENING...',
+      thinking:  '> THINKING...',
+      speaking:  '> TAP TO INTERRUPT',
+    };
+    setPTTStatus((mode === 'auto' ? autoLabels : pttLabels)[p] ?? '');
 
     cancelAnim();
     if (p === 'idle')     animateIdle();
