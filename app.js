@@ -100,14 +100,27 @@ function populateVoices() {
   if (!sel) return;
   const voices = window.speechSynthesis?.getVoices() ?? [];
   const english = voices.filter(v => v.lang.startsWith('en'));
+  const list = english.length ? english : voices;
+  if (!list.length) return;
   sel.innerHTML = '';
-  (english.length ? english : voices).forEach(v => {
+  list.forEach(v => {
     const o = document.createElement('option');
     o.value = v.name;
     o.textContent = v.name;
     o.selected = v.name === cfg.voice;
     sel.appendChild(o);
   });
+}
+
+function populateVoicesWithRetry() {
+  populateVoices();
+  if ($('settings-voice')?.options.length) return;
+  // iOS often needs a moment after a user gesture before getVoices() returns results
+  let attempts = 0;
+  const t = setInterval(() => {
+    populateVoices();
+    if ($('settings-voice')?.options.length || ++attempts >= 10) clearInterval(t);
+  }, 250);
 }
 
 function restoreSettings() {
@@ -119,7 +132,7 @@ function restoreSettings() {
   document.querySelectorAll('.rl-btn').forEach(b =>
     b.classList.toggle('on', b.dataset.rl === cfg.responseLength));
 
-  populateVoices();
+  populateVoicesWithRetry();
   if (window.speechSynthesis) {
     window.speechSynthesis.onvoiceschanged = populateVoices;
   }
@@ -136,6 +149,7 @@ function showScreen(name) {
 
 function showSettings() {
   showScreen('settings');
+  populateVoicesWithRetry();
 }
 
 async function showLoading() {
