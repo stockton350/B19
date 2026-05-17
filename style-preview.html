@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Style Preview</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --fg: #ffffff;
+      --fg-dim: #555555;
+      --bg: #000000;
+      --border: #2a2a2a;
+      --border-bright: #ffffff;
+      --font: 'Courier New', Courier, monospace;
+    }
+    body {
+      background: #000;
+      color: #fff;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+    .label {
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: #555;
+      margin-bottom: 12px;
+    }
+    .chat { display: flex; flex-direction: column; gap: 6px; }
+    .msg { display: flex; }
+    .msg.user { justify-content: flex-end; }
+    .msg.ai   { justify-content: flex-start; }
+    .bubble {
+      max-width: 78%;
+      padding: 8px 12px;
+      font-size: 12px;
+      line-height: 1.6;
+      letter-spacing: 0.5px;
+    }
+    /* User bubble — same across all */
+    .msg.user .bubble {
+      border: 1px solid #fff;
+      color: #fff;
+    }
+
+    /* Option A — current (dim text, no bg) */
+    .a .bubble { border: 1px solid #2a2a2a; color: #555; }
+
+    /* Option B — brighter text #aaaaaa */
+    .b .bubble { border: 1px solid #2a2a2a; color: #aaa; }
+
+    /* Option C — dark gray bg #111 + #aaa text */
+    .c .bubble { border: 1px solid #2a2a2a; color: #aaa; background: #111; }
+
+    /* Option D — slightly more bg #1a1a1a + #d0d0d0 text (more contrast) */
+    .d .bubble { border: 1px solid #333; color: #d0d0d0; background: #1a1a1a; }
+
+    /* Option E — inverted (white bg, black text) */
+    .e .bubble { background: #fff; color: #000; border: none; }
+  </style>
+</head>
+<body>
+
+  <div>
+    <div class="label">A — CURRENT (dim text, no bg)</div>
+    <div class="chat">
+      <div class="msg user"><div class="bubble">hey what's the capital of France?</div></div>
+      <div class="msg ai a"><div class="bubble">Paris. It's been the capital since the 10th century, though the city itself is far older than that.</div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="label">B — BRIGHTER TEXT #aaaaaa, no bg</div>
+    <div class="chat">
+      <div class="msg user"><div class="bubble">hey what's the capital of France?</div></div>
+      <div class="msg ai b"><div class="bubble">Paris. It's been the capital since the 10th century, though the city itself is far older than that.</div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="label">C — DARK BG #111 + #aaa text</div>
+    <div class="chat">
+      <div class="msg user"><div class="bubble">hey what's the capital of France?</div></div>
+      <div class="msg ai c"><div class="bubble">Paris. It's been the capital since the 10th century, though the city itself is far older than that.</div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="label">D — RICHER BG #1a1a1a + #bbb text</div>
+    <div class="chat">
+      <div class="msg user"><div class="bubble">hey what's the capital of France?</div></div>
+      <div class="msg ai d"><div class="bubble">Paris. It's been the capital since the 10th century, though the city itself is far older than that.</div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="label">E — INVERTED (white bg, black text)</div>
+    <div class="chat">
+      <div class="msg user"><div class="bubble">hey what's the capital of France?</div></div>
+      <div class="msg ai e"><div class="bubble">Paris. It's been the capital since the 10th century, though the city itself is far older than that.</div></div>
+    </div>
+  </div>
+
+</body>
+</html>
