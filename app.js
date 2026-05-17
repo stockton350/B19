@@ -343,11 +343,13 @@ function setMode(m, persist = true) {
     if (phase === 'speaking') stopSpeaking();
     setPhase('idle');
   } else if (m === 'ptt') {
+    unlockSpeech();
     textArea.style.display = 'none';
     pttArea.style.display  = '';
     setPhase('idle');
     animateIdle();
   } else if (m === 'auto') {
+    unlockSpeech();
     textArea.style.display = 'none';
     pttArea.style.display  = '';
     setPhase('idle');
@@ -961,7 +963,8 @@ if ('serviceWorker' in navigator) {
 // ── App visibility / audio recovery ───────────────────────────────────────
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
-    // Going to background: stop any active listening to avoid zombie sessions
+    // Reset audio unlock so the next user gesture re-primes the session
+    speechUnlocked = false;
     if (phase === 'listening') {
       stopListening();
       stopMicViz();
