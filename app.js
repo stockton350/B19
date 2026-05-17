@@ -709,17 +709,15 @@ function animateIdle() {
 }
 
 function animateListen() {
-  // Slow breathing pulse — clearly "on" but calm, distinct from idle flatline
+  // All bars pulse together — obvious motion, clearly distinct from idle
   const bars = getBars();
   const t0 = Date.now();
   function tick() {
     const t = (Date.now() - t0) * 0.001;
-    const breathe = 0.5 + 0.5 * Math.sin(t * 1.6);
-    bars.forEach((b, i) => {
-      const wave = Math.sin(t * 1.2 + i * 0.25) * 0.3;
-      b.style.height  = (5 + breathe * 14 + wave * 4) + 'px';
-      b.style.opacity = String(0.45 + breathe * 0.45);
-    });
+    const breathe = 0.5 + 0.5 * Math.sin(t * 2.5); // ~2.5s period
+    const h = (4 + breathe * 26) + 'px';            // 4px → 30px
+    const o = String(0.3 + breathe * 0.7);           // 0.3 → 1.0
+    bars.forEach(b => { b.style.height = h; b.style.opacity = o; });
     animFrame = requestAnimationFrame(tick);
   }
   tick();
