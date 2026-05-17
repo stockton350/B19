@@ -159,8 +159,6 @@
       letter-spacing: 0.5px;
       white-space: pre-wrap;
       word-break: break-word;
-      -webkit-user-select: none;
-      user-select: none;
     }
     .msg.user .bubble {
       border: 1px solid var(--border-bright);
@@ -170,13 +168,23 @@
       border: 1px solid #333;
       color: #d0d0d0;
       background: #1a1a1a;
+      position: relative;
+      padding-bottom: 26px;
+    }
+    .copy-btn {
+      position: absolute;
+      bottom: 6px;
+      right: 8px;
+      background: none;
+      border: none;
+      color: var(--fg-hint);
+      font-size: 14px;
+      font-family: var(--font);
       cursor: pointer;
-      -webkit-user-select: text;
-      user-select: text;
+      padding: 2px 4px;
+      line-height: 1;
     }
-    .msg.assistant .bubble.pressing {
-      border-color: #555;
-    }
+    .copy-btn:active { color: var(--fg); }
     .bubble.streaming::after {
       content: '▌';
       animation: blink 0.7s step-end infinite;

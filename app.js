@@ -372,6 +372,7 @@ async function onSend() {
     }, cfg.responseLength);
     bubble.classList.remove('streaming');
     messages.push({ role: 'assistant', content: reply });
+    attachCopyButton(bubble, reply);
     if (messages.length % 10 === 0) autoSave();
   } catch (err) {
     bubble.classList.remove('streaming');
@@ -514,63 +515,28 @@ function addBubble(role, text) {
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
   bubble.textContent = text;
-  if (role === 'assistant') attachLongPress(bubble);
+  if (role === 'assistant' && text) attachCopyButton(bubble, text);
   row.appendChild(bubble);
   $('chat-history').appendChild(row);
   scrollToBottom();
   return bubble;
 }
 
-function attachLongPress(bubble) {
-  let startTime = 0;
-  let startX = 0, startY = 0;
-  let pressTimer = null;
-
-  const onStart = e => {
-    startTime = Date.now();
-    if (e.touches) { startX = e.touches[0].clientX; startY = e.touches[0].clientY; }
-    pressTimer = setTimeout(() => bubble.classList.add('pressing'), 400);
-  };
-
-  const onEnd = () => {
-    clearTimeout(pressTimer);
-    bubble.classList.remove('pressing');
-    if (startTime && Date.now() - startTime >= 600) {
-      try {
-        const range = document.createRange();
-        range.selectNodeContents(bubble);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-      } catch {}
-    }
-    startTime = 0;
-  };
-
-  const onMove = e => {
-    if (!e.touches) return;
-    const dx = e.touches[0].clientX - startX;
-    const dy = e.touches[0].clientY - startY;
-    if (Math.sqrt(dx * dx + dy * dy) > 10) {
-      clearTimeout(pressTimer);
-      bubble.classList.remove('pressing');
-      startTime = 0;
-    }
-  };
-
-  const onCancel = () => {
-    clearTimeout(pressTimer);
-    bubble.classList.remove('pressing');
-    startTime = 0;
-  };
-
-  bubble.addEventListener('touchstart',  onStart,  { passive: true });
-  bubble.addEventListener('touchend',    onEnd,    { passive: true });
-  bubble.addEventListener('touchcancel', onCancel, { passive: true });
-  bubble.addEventListener('touchmove',   onMove,   { passive: true });
-  bubble.addEventListener('mousedown',   onStart);
-  bubble.addEventListener('mouseup',     onEnd);
-  bubble.addEventListener('mouseleave',  onCancel);
+function attachCopyButton(bubble, text) {
+  if (bubble.querySelector('.copy-btn')) return;
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn';
+  btn.setAttribute('aria-label', 'Copy');
+  btn.textContent = '⧉';
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(text ?? bubble.dataset.text ?? '').then(() => {
+      btn.textContent = '✓';
+      setTimeout(() => { btn.textContent = '⧉'; }, 1500);
+    });
+  });
+  bubble.dataset.text = text ?? bubble.textContent;
+  bubble.appendChild(btn);
 }
 
 
