@@ -525,23 +525,37 @@ function attachLongPress(bubble) {
   let startTime = 0;
   let pressTimer = null;
 
+  const dbg = msg => {
+    bubble.dataset.copyMsg = (bubble.dataset.copyMsg || '') + msg + ' | ';
+    bubble.classList.add('copied');
+    clearTimeout(bubble._dbgTimer);
+    bubble._dbgTimer = setTimeout(() => {
+      bubble.classList.remove('copied');
+      bubble.dataset.copyMsg = '';
+    }, 5000);
+  };
+
   const onStart = () => {
     startTime = Date.now();
     pressTimer = setTimeout(() => bubble.classList.add('pressing'), 400);
+    dbg('START');
   };
 
   const onEnd = () => {
     clearTimeout(pressTimer);
     bubble.classList.remove('pressing');
-    if (startTime && Date.now() - startTime >= 600) {
+    const elapsed = Date.now() - startTime;
+    dbg('END:' + elapsed + 'ms:st=' + startTime);
+    if (startTime && elapsed >= 600) {
       copyToClipboard(bubble.textContent, bubble);
     }
     startTime = 0;
   };
 
-  const onCancel = () => {
+  const onCancel = e => {
     clearTimeout(pressTimer);
     bubble.classList.remove('pressing');
+    dbg('CANCEL:' + e.type);
     startTime = 0;
   };
 
