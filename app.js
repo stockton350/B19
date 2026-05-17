@@ -365,7 +365,18 @@ async function processPTTResult(transcript) {
     addBubble('assistant', reply);
 
     setPhase('speaking');
-    await speak(reply, 'en-US-female', null, () => setPhase('idle'));
+    // Cancel keep-alive and speak synchronously in the same tick — iOS requires this
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(reply);
+    utter.rate   = 1.05;
+    utter.volume = 1.0;
+    utter.lang   = 'en-US';
+    utter.onend  = () => setPhase('idle');
+    utter.onerror = e => {
+      setPTTStatus(`> TTS ERR: ${e.error}`);
+      setTimeout(() => setPhase('idle'), 3000);
+    };
+    window.speechSynthesis.speak(utter);
   } catch (err) {
     setPTTStatus(`> ERROR: ${err.message.slice(0, 30).toUpperCase()}`);
     setTimeout(() => setPhase('idle'), 2500);
