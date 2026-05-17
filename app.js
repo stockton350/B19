@@ -161,12 +161,6 @@ function setupListeners() {
   $('init-btn').addEventListener('click', onInit);
   $('gear-btn').addEventListener('click', showSettings);
   $('update-btn').addEventListener('click', checkForUpdate);
-  $('test-voice-btn').addEventListener('click', () => {
-    const u = new SpeechSynthesisUtterance('Hello, this is a voice test.');
-    u.lang = 'en-US';
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  });
   $('mode-btn').addEventListener('click', toggleMode);
 
   document.querySelectorAll('.p-btn:not(.rl-btn)').forEach(b =>
