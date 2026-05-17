@@ -19,6 +19,7 @@ let pttHeld = false;
 let animFrame = null;
 let micAnalyser = null;
 let micStream = null;
+let micAudioCtx = null;
 
 const cfg = {
   apiKey:         localStorage.getItem(STORAGE.KEY)             || '',
@@ -513,9 +514,9 @@ function animateMic(data) {
 async function startMicViz() {
   try {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    const ctx = new AudioContext();
-    const src = ctx.createMediaStreamSource(micStream);
-    micAnalyser = ctx.createAnalyser();
+    micAudioCtx = new AudioContext();
+    const src = micAudioCtx.createMediaStreamSource(micStream);
+    micAnalyser = micAudioCtx.createAnalyser();
     micAnalyser.fftSize = 128;
     src.connect(micAnalyser);
     const data = new Uint8Array(micAnalyser.frequencyBinCount);
@@ -543,6 +544,7 @@ async function startMicViz() {
 function stopMicViz() {
   cancelAnim();
   if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (micAudioCtx) { micAudioCtx.close(); micAudioCtx = null; }
   micAnalyser = null;
 }
 
