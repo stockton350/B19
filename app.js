@@ -8,6 +8,7 @@ const STORAGE = {
   PERSONA:         'b19_persona',
   MODE:            'b19_mode',
   RESPONSE_LENGTH: 'b19_response_length',
+  VOICE:           'b19_voice',
 };
 const BAR_COUNT = 28;
 
@@ -26,6 +27,7 @@ const cfg = {
   persona:        localStorage.getItem(STORAGE.PERSONA)         || 'SPARK',
   mode:           localStorage.getItem(STORAGE.MODE)            || 'text',
   responseLength: localStorage.getItem(STORAGE.RESPONSE_LENGTH) || 'CONCISE',
+  voice:          localStorage.getItem(STORAGE.VOICE)           || 'en-US-female',
 };
 
 // ── DOM ───────────────────────────────────────────────────────────────────
@@ -38,11 +40,26 @@ const screens = {
 };
 
 // ── Boot ──────────────────────────────────────────────────────────────────
+function unlockAudio() {
+  // Play a silent WebAudio buffer to unlock the iOS audio session for
+  // speechSynthesis speaker output before any user interaction is needed.
+  try {
+    const ctx = new AudioContext();
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+    src.onended = () => ctx.close();
+  } catch {}
+}
+
 function boot() {
   buildBars();
   restoreSettings();
   setupListeners();
   setupViewport();
+  unlockAudio();
 
   // Disable PTT if speech recognition unavailable (e.g. HTTP on iOS)
   if (!isSupported()) {
@@ -65,6 +82,21 @@ function buildBars() {
   }
 }
 
+function populateVoices() {
+  const sel = $('settings-voice');
+  if (!sel) return;
+  const voices = window.speechSynthesis?.getVoices() ?? [];
+  const english = voices.filter(v => v.lang.startsWith('en'));
+  sel.innerHTML = '';
+  (english.length ? english : voices).forEach(v => {
+    const o = document.createElement('option');
+    o.value = v.name;
+    o.textContent = v.name;
+    o.selected = v.name === cfg.voice;
+    sel.appendChild(o);
+  });
+}
+
 function restoreSettings() {
   if (cfg.apiKey) $('api-key').value = cfg.apiKey;
 
@@ -73,6 +105,11 @@ function restoreSettings() {
 
   document.querySelectorAll('.rl-btn').forEach(b =>
     b.classList.toggle('on', b.dataset.rl === cfg.responseLength));
+
+  populateVoices();
+  if (window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = populateVoices;
+  }
 
   // Migrate old 'AUTO'/'PTT' values to new scheme
   const savedMode = cfg.mode;
@@ -138,6 +175,8 @@ function setupListeners() {
   document.querySelectorAll('.rl-btn').forEach(b =>
     b.addEventListener('click', () => setResponseLength(b.dataset.rl)));
 
+  $('settings-voice')?.addEventListener('change', e => { cfg.voice = e.target.value; save(); });
+
   // Text input
   const input = $('text-input');
   input.addEventListener('input', onTextInputChange);
@@ -175,6 +214,7 @@ function onInit() {
   cfg.apiKey         = key;
   cfg.persona        = document.querySelector('.p-btn:not(.rl-btn).on')?.dataset.p || 'SPARK';
   cfg.responseLength = document.querySelector('.rl-btn.on')?.dataset.rl || 'CONCISE';
+  cfg.voice          = $('settings-voice').value || 'en-US-female';
   save();
   showLoading();
 }
@@ -198,6 +238,7 @@ function save() {
   localStorage.setItem(STORAGE.PERSONA,         cfg.persona);
   localStorage.setItem(STORAGE.MODE,            mode);
   localStorage.setItem(STORAGE.RESPONSE_LENGTH, cfg.responseLength);
+  localStorage.setItem(STORAGE.VOICE,           cfg.voice);
 }
 
 // ── Update check ──────────────────────────────────────────────────────────
@@ -323,13 +364,26 @@ function onPTTDown() {
   if (phase === 'speaking') { stopSpeaking(); setPhase('idle'); return; }
   if (phase !== 'idle') return;
 
-  // Keep iOS audio session alive during STT + LLM wait.
-  // Speak a very slow, nearly-silent utterance so the session stays open
-  // long enough for the real response to speak after the async chain.
-  const keepAlive = new SpeechSynthesisUtterance('waiting waiting waiting waiting waiting');
-  keepAlive.rate   = 0.1;
-  keepAlive.volume = 0.001;
-  window.speechSynthesis.speak(keepAlive);
+  // On iOS, speechSynthesis called from async callbacks requires the audio
+  // session to be active. Queue a silent keep-alive utterance during the
+  // gesture so the session stays open through STT + LLM wait.
+  try {
+    const ka = new SpeechSynthesisUtterance(' ');
+    ka.volume = 0.001;
+    ka.rate   = 0.1;
+    window.speechSynthesis.speak(ka);
+  } catch {}
+
+  // Also unlock WebAudio session so iOS routes speech to speaker
+  try {
+    const ctx = new AudioContext();
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+    src.onended = () => ctx.close();
+  } catch {}
 
   pttHeld = true;
   setPhase('listening');
@@ -374,7 +428,9 @@ async function processPTTResult(transcript) {
     setPhase('speaking');
     // Cancel keep-alive and speak synchronously in the same tick — iOS requires this
     window.speechSynthesis.cancel();
+    const voices = window.speechSynthesis.getVoices();
     const utter = new SpeechSynthesisUtterance(reply);
+    utter.voice  = voices.find(v => v.name === cfg.voice) ?? voices.find(v => v.lang.startsWith('en')) ?? null;
     utter.rate   = 1.05;
     utter.volume = 1.0;
     utter.lang   = 'en-US';
