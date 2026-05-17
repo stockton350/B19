@@ -171,22 +171,11 @@
       color: #d0d0d0;
       background: #1a1a1a;
       cursor: pointer;
+      -webkit-user-select: text;
+      user-select: text;
     }
     .msg.assistant .bubble.pressing {
       border-color: #555;
-    }
-    .msg.assistant .bubble.copied {
-      border-color: var(--border-bright);
-      color: var(--fg);
-    }
-    .msg.assistant .bubble.copied::after {
-      content: attr(data-copy-msg);
-      font-size: 11px;
-      letter-spacing: 1px;
-      opacity: 0.8;
-      display: block;
-      margin-top: 6px;
-      color: #aaa;
     }
     .bubble.streaming::after {
       content: '▌';

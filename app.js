@@ -536,7 +536,13 @@ function attachLongPress(bubble) {
     clearTimeout(pressTimer);
     bubble.classList.remove('pressing');
     if (startTime && Date.now() - startTime >= 600) {
-      copyToClipboard(bubble.textContent, bubble);
+      try {
+        const range = document.createRange();
+        range.selectNodeContents(bubble);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch {}
     }
     startTime = 0;
   };
@@ -567,46 +573,6 @@ function attachLongPress(bubble) {
   bubble.addEventListener('mouseleave',  onCancel);
 }
 
-function copyToClipboard(text, bubble) {
-  const log = msg => { bubble.dataset.dbg = (bubble.dataset.dbg || '') + msg + ' | '; flashDebug(bubble, bubble.dataset.dbg); };
-  if (navigator.clipboard?.writeText) {
-    log('API:try');
-    navigator.clipboard.writeText(text)
-      .then(() => { log('API:ok'); flashCopied(bubble); })
-      .catch(err => { log('API:fail=' + err.name); execCopy(text, bubble, log); });
-  } else {
-    log('noAPI');
-    execCopy(text, bubble, log);
-  }
-}
-
-function execCopy(text, bubble, log) {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
-  document.body.appendChild(ta);
-  ta.focus();
-  ta.select();
-  try {
-    const ok = document.execCommand('copy');
-    log('exec:' + ok);
-    if (ok) flashCopied(bubble); else flashDebug(bubble, bubble.dataset.dbg + 'exec=false');
-  } catch(e) {
-    log('exec:err=' + e.message);
-  }
-  document.body.removeChild(ta);
-}
-
-function flashDebug(bubble, msg) {
-  bubble.classList.add('copied');
-  bubble.dataset.copyMsg = msg;
-  setTimeout(() => { bubble.classList.remove('copied'); delete bubble.dataset.copyMsg; }, 4000);
-}
-
-function flashCopied(bubble) {
-  bubble.classList.add('copied');
-  setTimeout(() => bubble.classList.remove('copied'), 1200);
-}
 
 function renderAllMessages() {
   const history = $('chat-history');
