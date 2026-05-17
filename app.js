@@ -98,12 +98,19 @@ function buildBars() {
   }
 }
 
+const VOICE_BLOCKLIST = new Set([
+  'Albert','Bad News','Bahh','Bells','Boing','Bubbles','Cellos','Deranged',
+  'Fred','Good News','Hysterical','Jester','Junior','Kathy','Organ',
+  'Pipe Organ','Princess','Ralph','Superstar','Trinoids','Whisper',
+  'Wobble','Zarvox',
+]);
+
 function populateVoices() {
   const sel = $('settings-voice');
   if (!sel) return;
   const voices = window.speechSynthesis?.getVoices() ?? [];
-  const english = voices.filter(v => v.lang.startsWith('en'));
-  const list = english.length ? english : voices;
+  const english = voices.filter(v => v.lang.startsWith('en') && !VOICE_BLOCKLIST.has(v.name));
+  const list = english.length ? english : voices.filter(v => !VOICE_BLOCKLIST.has(v.name));
   if (!list.length) return;
   sel.innerHTML = '';
   list.forEach(v => {
@@ -113,12 +120,6 @@ function populateVoices() {
     o.selected = v.name === cfg.voice;
     sel.appendChild(o);
   });
-
-  const dbg = $('voice-debug');
-  if (dbg) {
-    dbg.textContent = `ALL VOICES (${voices.length}): ` +
-      voices.map(v => `${v.name} [${v.lang}]`).join(' · ');
-  }
 }
 
 function populateVoicesWithRetry() {
