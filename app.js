@@ -379,7 +379,7 @@ function onPTTDown() {
   // session to be active. Queue a silent keep-alive utterance during the
   // gesture so the session stays open through STT + LLM wait.
   try {
-    const ka = new SpeechSynthesisUtterance(' ');
+    const ka = new SpeechSynthesisUtterance('waiting waiting waiting waiting waiting waiting waiting waiting waiting waiting');
     ka.volume = 0.001;
     ka.rate   = 0.1;
     window.speechSynthesis.speak(ka);
