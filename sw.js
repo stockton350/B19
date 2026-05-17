@@ -1,4 +1,4 @@
-const CACHE = 'b19-v5';
+const CACHE = 'b19-v6';
 const ASSETS = ['index.html', 'app.js', 'llm.js', 'tts.js', 'stt.js', 'manifest.json'];
 
 self.addEventListener('install', e => {
