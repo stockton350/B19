@@ -518,25 +518,24 @@ function startAutoListen() {
   if (mode !== 'auto' || phase !== 'idle') return;
 
   setPhase('listening');
-  startMicViz();
+  // No startMicViz() in AUTO — using both getUserMedia and SpeechRecognition
+  // simultaneously causes iOS audio session conflicts when switching to PTT.
+  // The bar animation from setPhase is sufficient feedback.
 
   startListening({
     onResult: async transcript => {
-      stopMicViz();
       await processAutoResult(transcript);
     },
     onError: err => {
-      stopMicViz();
       if (mode !== 'auto') return;
+      dbg(`AUTO:err ${err}`);
       setPTTStatus(`> ERROR: ${err.toUpperCase()}`);
       setPhase('idle');
       setTimeout(() => { if (mode === 'auto') startAutoListen(); }, 2000);
     },
     onEnd: () => {
       if (mode !== 'auto' || phase !== 'listening') return;
-      stopMicViz();
       setPhase('idle');
-      // No result came — restart after a brief pause
       setTimeout(() => { if (mode === 'auto') startAutoListen(); }, 400);
     },
   });
@@ -618,9 +617,10 @@ function setPhase(p) {
     setPTTStatus((mode === 'auto' ? autoLabels : pttLabels)[p] ?? '');
 
     cancelAnim();
-    if (p === 'idle')     animateIdle();
-    if (p === 'thinking') animateThink();
-    if (p === 'speaking') animateSpeak();
+    if (p === 'idle')                          animateIdle();
+    if (p === 'listening' && mode === 'auto')  animateListen();
+    if (p === 'thinking')                      animateThink();
+    if (p === 'speaking')                      animateSpeak();
   }
 }
 
@@ -702,6 +702,23 @@ function animateIdle() {
     bars.forEach((b, i) => {
       b.style.height  = (3 + Math.sin(t * 0.8 + i * 0.35) * 2) + 'px';
       b.style.opacity = '0.25';
+    });
+    animFrame = requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+function animateListen() {
+  // Slow breathing pulse — clearly "on" but calm, distinct from idle flatline
+  const bars = getBars();
+  const t0 = Date.now();
+  function tick() {
+    const t = (Date.now() - t0) * 0.001;
+    const breathe = 0.5 + 0.5 * Math.sin(t * 1.6);
+    bars.forEach((b, i) => {
+      const wave = Math.sin(t * 1.2 + i * 0.25) * 0.3;
+      b.style.height  = (5 + breathe * 14 + wave * 4) + 'px';
+      b.style.opacity = String(0.45 + breathe * 0.45);
     });
     animFrame = requestAnimationFrame(tick);
   }
