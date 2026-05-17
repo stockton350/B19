@@ -968,26 +968,10 @@ document.addEventListener('visibilitychange', () => {
       setPhase('idle');
     }
   } else {
-    // Returning to foreground: recover audio state
-    // iOS pauses speechSynthesis when backgrounded — resume it
-    try { if (window.speechSynthesis.paused) window.speechSynthesis.resume(); } catch {}
-
-    // Resume a suspended AudioContext (mic viz)
+    // Returning to foreground: drop back to TEXT mode — safest recovery
+    try { window.speechSynthesis.cancel(); } catch {}
     if (micAudioCtx?.state === 'suspended') micAudioCtx.resume().catch(() => {});
-
-    // Recover AUTO mode — recognition and TTS are killed by iOS on background
-    if (mode === 'auto') {
-      window.speechSynthesis.cancel();
-      stopListening();
-      setPhase('idle');
-      setTimeout(startAutoListen, 500);
-    }
-
-    // If PTT was speaking and TTS was killed, reset to idle
-    if (mode === 'ptt' && phase === 'speaking') {
-      window.speechSynthesis.cancel();
-      setPhase('idle');
-    }
+    setMode('text');
   }
 });
 
