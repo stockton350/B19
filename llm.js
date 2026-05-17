@@ -1,9 +1,9 @@
-// ── LLM Provider: Gemini ──────────────────────────────────────────────────
+// ── LLM Provider: DeepSeek ───────────────────────────────────────────────
 // To swap providers: replace sendMessage() with another implementation.
 // Contract: sendMessage(messages, persona, apiKey) → Promise<string>
 
-const MODEL    = 'gemini-2.5-flash';
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+const MODEL    = 'deepseek-chat';
+const ENDPOINT = 'https://api.deepseek.com/v1/chat/completions';
 
 const PERSONAS = {
   SPARK: `You are Spark, a warm and curious voice assistant. You are speaking aloud — never write markdown, lists, or bullet points. Use short natural sentences. Ask the occasional follow-up question. Never say "certainly", "absolutely", or "great question". Never mention being an AI unless directly asked.`,
@@ -14,20 +14,20 @@ const PERSONAS = {
 export async function sendMessage(messages, persona, apiKey) {
   const system = PERSONAS[persona] ?? PERSONAS.SPARK;
 
-  const res = await fetch(`${ENDPOINT}?key=${apiKey}`, {
+  const res = await fetch(ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
     body: JSON.stringify({
-      system_instruction: { parts: [{ text: system }] },
-      contents: messages.map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      })),
-      generationConfig: {
-        temperature: 0.9,
-        maxOutputTokens: 300,
-        thinkingConfig: { thinkingBudget: 0 }
-      }
+      model: MODEL,
+      messages: [
+        { role: 'system', content: system },
+        ...messages.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }))
+      ],
+      temperature: 0.9,
+      max_tokens: 300,
     })
   });
 
@@ -37,5 +37,5 @@ export async function sendMessage(messages, persona, apiKey) {
   }
 
   const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  return data.choices?.[0]?.message?.content ?? '';
 }
