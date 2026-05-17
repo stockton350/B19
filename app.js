@@ -10,12 +10,14 @@ const STORAGE = {
   RESPONSE_LENGTH: 'b19_response_length',
   VOICE:           'b19_voice',
 };
+const SESSIONS_KEY = 'b19_sessions';
 const BAR_COUNT = 28;
 
 // ── App State ─────────────────────────────────────────────────────────────
 let mode  = 'text'; // 'text' | 'ptt'
 let phase = 'idle'; // 'idle' | 'listening' | 'thinking' | 'speaking'
 let messages = [];
+let currentSession = null;
 let pttHeld = false;
 let animFrame = null;
 let micAnalyser = null;
@@ -68,6 +70,7 @@ function unlockSpeech() {
 }
 
 function boot() {
+  startNewSession();
   buildBars();
   restoreSettings();
   setupListeners();
@@ -189,6 +192,9 @@ function setupListeners() {
   $('gear-btn').addEventListener('click', showSettings);
   $('update-btn').addEventListener('click', checkForUpdate);
   $('mode-btn').addEventListener('click', toggleMode);
+  $('menu-btn').addEventListener('click', openSidebar);
+  $('sidebar-overlay').addEventListener('click', closeSidebar);
+  $('new-session-btn').addEventListener('click', () => { startNewSession(); renderAllMessages(); closeSidebar(); });
 
   document.querySelectorAll('.p-btn:not(.rl-btn)').forEach(b =>
     b.addEventListener('click', () => setPersona(b.dataset.p)));
@@ -366,6 +372,7 @@ async function onSend() {
     }, cfg.responseLength);
     bubble.classList.remove('streaming');
     messages.push({ role: 'assistant', content: reply });
+    if (messages.length % 10 === 0) autoSave();
   } catch (err) {
     bubble.classList.remove('streaming');
     bubble.textContent = `ERROR: ${err.message}`;
@@ -449,6 +456,7 @@ async function processPTTResult(transcript) {
     const reply = await sendMessage(messages, cfg.persona, cfg.apiKey, maxTokens, null, cfg.responseLength);
     messages.push({ role: 'assistant', content: reply });
     addBubble('assistant', reply);
+    if (messages.length % 10 === 0) autoSave();
 
     setPhase('speaking');
     // Cancel keep-alive and speak synchronously in the same tick — iOS requires this
@@ -648,6 +656,136 @@ function flash(id, msg) {
   el.placeholder = msg;
   el.classList.add('err');
   setTimeout(() => { el.placeholder = prev; el.classList.remove('err'); }, 2000);
+}
+
+// ── Session management ────────────────────────────────────────────────────
+function startNewSession() {
+  currentSession = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    title: null,
+    startedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  messages = [];
+  hideSummaryHeader();
+}
+
+function getSessionIndex() {
+  try { return JSON.parse(localStorage.getItem(SESSIONS_KEY)) ?? []; }
+  catch { return []; }
+}
+
+async function autoSave() {
+  if (!currentSession) return;
+  currentSession.updatedAt = new Date().toISOString();
+
+  if (!currentSession.title) {
+    currentSession.title = await generateSessionTitle();
+  }
+
+  localStorage.setItem(`b19_session_${currentSession.id}`, JSON.stringify({
+    ...currentSession,
+    messages,
+    persona: cfg.persona,
+    responseLength: cfg.responseLength,
+  }));
+
+  const index = getSessionIndex().filter(s => s.id !== currentSession.id);
+  index.unshift({ id: currentSession.id, title: currentSession.title, startedAt: currentSession.startedAt, updatedAt: currentSession.updatedAt });
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(index));
+
+  showSummaryHeader(currentSession.title, currentSession.updatedAt);
+}
+
+async function generateSessionTitle() {
+  try {
+    const transcript = messages.slice(0, 10)
+      .map(m => `${m.role === 'user' ? 'U' : 'A'}: ${m.content.slice(0, 100)}`)
+      .join('\n');
+    const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.apiKey}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        max_tokens: 15,
+        temperature: 0.5,
+        messages: [
+          { role: 'system', content: 'Give this conversation a title: 3-5 words, ALL CAPS, no punctuation, no quotes.' },
+          { role: 'user', content: transcript },
+        ],
+      }),
+    });
+    const data = await res.json();
+    return (data.choices?.[0]?.message?.content ?? '').trim().slice(0, 40) || 'UNTITLED';
+  } catch {
+    return 'UNTITLED';
+  }
+}
+
+function restoreSession(id) {
+  try {
+    const data = JSON.parse(localStorage.getItem(`b19_session_${id}`));
+    if (!data) return;
+    currentSession = { id: data.id, title: data.title, startedAt: data.startedAt, updatedAt: data.updatedAt };
+    messages = data.messages ?? [];
+    renderAllMessages();
+    showSummaryHeader(data.title, data.updatedAt);
+    closeSidebar();
+  } catch {}
+}
+
+// ── Summary header ────────────────────────────────────────────────────────
+function showSummaryHeader(title, isoDate) {
+  const el = $('session-summary');
+  if (!el) return;
+  $('summary-title').textContent = '// ' + (title ?? 'UNTITLED');
+  $('summary-date').textContent  = formatDate(isoDate);
+  el.style.display = '';
+}
+
+function hideSummaryHeader() {
+  const el = $('session-summary');
+  if (el) el.style.display = 'none';
+}
+
+function formatDate(iso) {
+  try {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch { return ''; }
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────
+function openSidebar() {
+  renderSessionList();
+  $('sidebar').classList.add('open');
+  $('sidebar-overlay').classList.add('open');
+}
+
+function closeSidebar() {
+  $('sidebar').classList.remove('open');
+  $('sidebar-overlay').classList.remove('open');
+}
+
+function renderSessionList() {
+  const list = $('session-list');
+  const index = getSessionIndex();
+  list.innerHTML = '';
+
+  if (!index.length) {
+    const empty = document.createElement('div');
+    empty.className = 'session-empty';
+    empty.textContent = 'NO SAVED SESSIONS YET';
+    list.appendChild(empty);
+    return;
+  }
+
+  index.forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'session-item';
+    item.innerHTML = `<div class="session-item-title">${s.title ?? 'UNTITLED'}</div><div class="session-item-date">${formatDate(s.updatedAt)}</div>`;
+    item.addEventListener('click', () => restoreSession(s.id));
+    list.appendChild(item);
+  });
 }
 
 // ── Service worker ────────────────────────────────────────────────────────
