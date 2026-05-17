@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="B1-9">
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <title>BREAKER ONE NINER</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --fg: #ffffff;
+      --fg-dim: #555555;
+      --fg-hint: #2a2a2a;
+      --bg: #000000;
+      --border: #2a2a2a;
+      --border-bright: #ffffff;
+      --font: 'Courier New', Courier, monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font);
+      -webkit-text-size-adjust: 100%;
+      overflow: hidden;
+    }
+
+    /* ── Screens ── */
+    .screen { display: none; flex-direction: column; height: 100vh; height: 100dvh; }
+    .screen.active { display: flex; }
+
+    /* ── Header ── */
+    .hdr {
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px 10px;
+      flex-shrink: 0;
+    }
+    .hdr-title {
+      font-size: 13px;
+      letter-spacing: 3px;
+      color: var(--fg);
+    }
+    .hdr-sub {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--fg-dim);
+      margin-top: 2px;
+    }
+    .hdr-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .spacer { flex: 1; }
+
+    /* ── Selects ── */
+    select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--fg-dim);
+      font-family: var(--font);
+      font-size: 10px;
+      padding: 4px 8px;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      border-radius: 0;
+    }
+    select:focus { outline: none; border-color: var(--border-bright); color: var(--fg); }
+
+    /* ── Toggle buttons ── */
+    .toggle-grp { display: flex; }
+    .toggle-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--fg-dim);
+      font-family: var(--font);
+      font-size: 10px;
+      padding: 4px 10px;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+    .toggle-btn:first-child { border-right: none; }
+    .toggle-btn.on { border-color: var(--border-bright); color: var(--fg); }
+
+    /* ── Gear button ── */
+    .gear-btn {
+      background: none; border: none;
+      color: var(--fg-dim); font-family: var(--font);
+      font-size: 16px; cursor: pointer; line-height: 1;
+    }
+    .gear-btn:hover { color: var(--fg); }
+
+    /* ── Body ── */
+    .body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    /* ── Waveform ── */
+    #bars {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      height: 52px;
+      margin-bottom: 20px;
+    }
+    .bar {
+      width: 3px;
+      height: 4px;
+      background: var(--fg);
+      transition: height 0.04s, opacity 0.04s;
+    }
+
+    /* ── Status ── */
+    #status {
+      font-size: 12px;
+      letter-spacing: 3px;
+      color: var(--fg);
+      height: 18px;
+    }
+
+    /* ── Footer ── */
+    .ftr {
+      border-top: 1px solid var(--fg-hint);
+      padding: 8px 16px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      letter-spacing: 1px;
+      color: var(--fg-dim);
+      flex-shrink: 0;
+    }
+
+    /* ──────────────────────────────────────────── */
+    /* SETTINGS SCREEN                              */
+    /* ──────────────────────────────────────────── */
+    .settings-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 16px;
+    }
+
+    .s-group { margin-bottom: 22px; }
+    .s-label {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--fg-dim);
+      margin-bottom: 8px;
+    }
+
+    .s-input {
+      width: 100%;
+      background: var(--bg);
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--fg);
+      font-family: var(--font);
+      font-size: 12px;
+      padding: 6px 0;
+      outline: none;
+      letter-spacing: 1px;
+    }
+    .s-input::placeholder { color: var(--fg-dim); }
+    .s-input:focus { border-bottom-color: var(--border-bright); }
+    .s-input.err { border-bottom-color: #ff4444; }
+    .s-input.err::placeholder { color: #ff4444; }
+
+    .s-hint {
+      font-size: 9px;
+      color: var(--fg-hint);
+      letter-spacing: 1px;
+      margin-top: 5px;
+    }
+
+    /* Persona buttons */
+    .p-grp { display: flex; gap: 8px; }
+    .p-btn {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--fg-dim);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 10px 4px;
+      cursor: pointer;
+      letter-spacing: 2px;
+      text-align: center;
+    }
+    .p-btn.on { border-color: var(--border-bright); color: var(--fg); }
+
+    /* Voice select full width */
+    .s-select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--fg-dim);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 8px;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      border-radius: 0;
+    }
+    .s-select:focus { outline: none; border-color: var(--border-bright); color: var(--fg); }
+
+    /* Init button */
+    .init-btn {
+      width: 100%;
+      background: var(--fg);
+      color: var(--bg);
+      border: none;
+      font-family: var(--font);
+      font-size: 12px;
+      padding: 14px;
+      cursor: pointer;
+      letter-spacing: 4px;
+      margin-top: 8px;
+    }
+    .init-btn:active { background: #cccccc; }
+
+    /* Reset link */
+    .reset-link {
+      font-size: 9px;
+      color: var(--fg-hint);
+      letter-spacing: 1px;
+      cursor: pointer;
+      text-align: center;
+      margin-top: 14px;
+    }
+    .reset-link:hover { color: var(--fg-dim); }
+
+    /* ──────────────────────────────────────────── */
+    /* LOADING SCREEN                               */
+    /* ──────────────────────────────────────────── */
+    .load-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    #load-msg {
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--fg-dim);
+      margin-bottom: 16px;
+    }
+
+    .progress-track {
+      width: 200px;
+      height: 1px;
+      background: var(--border);
+    }
+    #progress-fill {
+      height: 1px;
+      background: var(--fg);
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    #progress-pct {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--fg-dim);
+      margin-top: 8px;
+      text-align: center;
+      width: 200px;
+    }
+
+    .load-note {
+      font-size: 9px;
+      color: var(--fg-hint);
+      letter-spacing: 1px;
+      margin-top: 24px;
+      text-align: center;
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── SETTINGS SCREEN ────────────────────────────────────────────── -->
+  <div id="scr-settings" class="screen active">
+    <div class="hdr">
+      <div class="hdr-title">BREAKER ONE NINER</div>
+      <div class="hdr-sub">// SETUP</div>
+    </div>
+
+    <div class="settings-body">
+
+      <div class="s-group">
+        <div class="s-label">DEEPSEEK API KEY</div>
+        <input id="api-key" class="s-input" type="password" placeholder="sk-••••••••••••••••••••" autocomplete="off" spellcheck="false">
+        <div class="s-hint">LLM · PLATFORM.DEEPSEEK.COM</div>
+      </div>
+
+      <div class="s-group">
+        <div class="s-label">OPENAI API KEY <span style="color:var(--fg-hint)">(OPTIONAL — FOR TTS ON IOS)</span></div>
+        <input id="tts-key" class="s-input" type="password" placeholder="sk-••••••••••••••••••••" autocomplete="off" spellcheck="false">
+        <div class="s-hint">TTS ONLY · LEAVE BLANK TO USE FREE BROWSER VOICE · PLATFORM.OPENAI.COM</div>
+      </div>
+
+      <div class="s-group">
+        <div class="s-label">PERSONA</div>
+        <div class="p-grp">
+          <button class="p-btn" data-p="SPARK">SPARK</button>
+          <button class="p-btn" data-p="NOVA">NOVA</button>
+          <button class="p-btn" data-p="ECHO">ECHO</button>
+        </div>
+      </div>
+
+      <div class="s-group">
+        <div class="s-label">VOICE</div>
+        <select id="settings-voice" class="s-select"></select>
+      </div>
+
+      <div class="s-group">
+        <div class="s-label">INPUT MODE</div>
+        <div class="toggle-grp" style="width:100%">
+          <button class="toggle-btn mode-btn" data-m="AUTO" style="flex:1">AUTO</button>
+          <button class="toggle-btn mode-btn" data-m="PTT"  style="flex:1">PTT</button>
+        </div>
+        <div class="s-hint" style="margin-top:6px">
+          AUTO: TAP ONCE · PTT: HOLD TO TALK (NOISY ENVIRONMENTS)
+        </div>
+      </div>
+
+      <button id="init-btn" class="init-btn">[ INITIALIZE ]</button>
+
+      <div class="reset-link" id="reset-link" onclick="localStorage.clear();location.reload()">RESET &amp; CLEAR ALL DATA</div>
+
+    </div>
+
+    <div class="ftr">
+      <span>BREAKER ONE NINER // v0.2.0</span>
+      <span id="settings-footer-r">DEEPSEEK · BROWSER TTS</span>
+    </div>
+  </div>
+
+  <!-- ── LOADING SCREEN ─────────────────────────────────────────────── -->
+  <div id="scr-loading" class="screen">
+    <div class="hdr">
+      <div class="hdr-title">BREAKER ONE NINER</div>
+      <div class="hdr-sub">// LOADING</div>
+    </div>
+
+    <div class="load-body">
+      <div id="load-msg">INITIALIZING...</div>
+      <div class="progress-track">
+        <div id="progress-fill"></div>
+      </div>
+      <div id="progress-pct">0%</div>
+      <div class="load-note" id="load-note">CONNECTING TO DEEPSEEK...</div>
+    </div>
+
+    <div class="ftr">
+      <span id="load-footer-l">—</span>
+      <span id="load-footer-r"></span>
+    </div>
+  </div>
+
+  <!-- ── MAIN SCREEN ────────────────────────────────────────────────── -->
+  <div id="scr-main" class="screen">
+    <div class="hdr">
+      <div class="hdr-title">BREAKER // 1-9</div>
+      <div class="hdr-row">
+        <div class="toggle-grp">
+          <button class="toggle-btn mode-btn" data-m="AUTO">AUTO</button>
+          <button class="toggle-btn mode-btn" data-m="PTT">PTT</button>
+        </div>
+        <div class="spacer"></div>
+        <button class="gear-btn" id="gear-btn" aria-label="Settings">⚙</button>
+      </div>
+    </div>
+
+    <div class="body" id="main-body" aria-label="Tap to talk">
+      <div id="bars"></div>
+      <div id="status">&gt; READY</div>
+    </div>
+
+    <div class="ftr">
+      <span id="footer-l">—</span>
+      <span id="footer-r">TAP TO TALK</span>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
