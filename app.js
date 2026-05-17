@@ -192,9 +192,9 @@ function setupListeners() {
   $('gear-btn').addEventListener('click', showSettings);
   $('update-btn').addEventListener('click', checkForUpdate);
   $('mode-btn').addEventListener('click', toggleMode);
-  $('menu-btn').addEventListener('click', openSidebar);
-  $('sidebar-overlay').addEventListener('click', closeSidebar);
-  $('new-session-btn').addEventListener('click', () => { startNewSession(); renderAllMessages(); closeSidebar(); });
+  $('menu-btn')?.addEventListener('click', openSidebar);
+  $('sidebar-overlay')?.addEventListener('click', closeSidebar);
+  $('new-session-btn')?.addEventListener('click', () => { startNewSession(); renderAllMessages(); closeSidebar(); });
 
   document.querySelectorAll('.p-btn:not(.rl-btn)').forEach(b =>
     b.addEventListener('click', () => setPersona(b.dataset.p)));
