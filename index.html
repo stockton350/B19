@@ -180,10 +180,13 @@
       color: var(--fg);
     }
     .msg.assistant .bubble.copied::after {
-      content: ' ✓ COPIED';
+      content: attr(data-copy-msg);
       font-size: 11px;
-      letter-spacing: 2px;
-      opacity: 0.6;
+      letter-spacing: 1px;
+      opacity: 0.8;
+      display: block;
+      margin-top: 6px;
+      color: #aaa;
     }
     .bubble.streaming::after {
       content: '▌';
