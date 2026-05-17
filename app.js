@@ -113,6 +113,12 @@ function populateVoices() {
     o.selected = v.name === cfg.voice;
     sel.appendChild(o);
   });
+
+  const dbg = $('voice-debug');
+  if (dbg) {
+    dbg.textContent = `ALL VOICES (${voices.length}): ` +
+      voices.map(v => `${v.name} [${v.lang}]`).join(' · ');
+  }
 }
 
 function populateVoicesWithRetry() {
