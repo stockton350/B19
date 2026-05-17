@@ -514,10 +514,38 @@ function addBubble(role, text) {
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
   bubble.textContent = text;
+  if (role === 'assistant') attachLongPress(bubble);
   row.appendChild(bubble);
   $('chat-history').appendChild(row);
   scrollToBottom();
   return bubble;
+}
+
+function attachLongPress(bubble) {
+  let timer = null;
+
+  const cancel = () => { clearTimeout(timer); timer = null; };
+
+  const trigger = () => {
+    timer = setTimeout(() => {
+      timer = null;
+      const text = bubble.textContent;
+      navigator.clipboard?.writeText(text).then(() => flashCopied(bubble)).catch(() => {});
+    }, 600);
+  };
+
+  bubble.addEventListener('touchstart',  trigger,  { passive: true });
+  bubble.addEventListener('touchend',    cancel,   { passive: true });
+  bubble.addEventListener('touchcancel', cancel,   { passive: true });
+  bubble.addEventListener('touchmove',   cancel,   { passive: true });
+  bubble.addEventListener('mousedown',   trigger);
+  bubble.addEventListener('mouseup',     cancel);
+  bubble.addEventListener('mouseleave',  cancel);
+}
+
+function flashCopied(bubble) {
+  bubble.classList.add('copied');
+  setTimeout(() => bubble.classList.remove('copied'), 1200);
 }
 
 function renderAllMessages() {
