@@ -522,25 +522,38 @@ function addBubble(role, text) {
 }
 
 function attachLongPress(bubble) {
-  let timer = null;
+  let startTime = 0;
+  let pressTimer = null;
 
-  const cancel = () => { clearTimeout(timer); timer = null; };
-
-  const trigger = () => {
-    timer = setTimeout(() => {
-      timer = null;
-      const text = bubble.textContent;
-      navigator.clipboard?.writeText(text).then(() => flashCopied(bubble)).catch(() => {});
-    }, 600);
+  const onStart = () => {
+    startTime = Date.now();
+    pressTimer = setTimeout(() => bubble.classList.add('pressing'), 400);
   };
 
-  bubble.addEventListener('touchstart',  trigger,  { passive: true });
-  bubble.addEventListener('touchend',    cancel,   { passive: true });
-  bubble.addEventListener('touchcancel', cancel,   { passive: true });
-  bubble.addEventListener('touchmove',   cancel,   { passive: true });
-  bubble.addEventListener('mousedown',   trigger);
-  bubble.addEventListener('mouseup',     cancel);
-  bubble.addEventListener('mouseleave',  cancel);
+  const onEnd = () => {
+    clearTimeout(pressTimer);
+    bubble.classList.remove('pressing');
+    if (startTime && Date.now() - startTime >= 600) {
+      navigator.clipboard?.writeText(bubble.textContent)
+        .then(() => flashCopied(bubble))
+        .catch(() => {});
+    }
+    startTime = 0;
+  };
+
+  const onCancel = () => {
+    clearTimeout(pressTimer);
+    bubble.classList.remove('pressing');
+    startTime = 0;
+  };
+
+  bubble.addEventListener('touchstart',  onStart,  { passive: true });
+  bubble.addEventListener('touchend',    onEnd,    { passive: true });
+  bubble.addEventListener('touchcancel', onCancel, { passive: true });
+  bubble.addEventListener('touchmove',   onCancel, { passive: true });
+  bubble.addEventListener('mousedown',   onStart);
+  bubble.addEventListener('mouseup',     onEnd);
+  bubble.addEventListener('mouseleave',  onCancel);
 }
 
 function flashCopied(bubble) {
