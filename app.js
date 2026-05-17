@@ -534,9 +534,7 @@ function attachLongPress(bubble) {
     clearTimeout(pressTimer);
     bubble.classList.remove('pressing');
     if (startTime && Date.now() - startTime >= 600) {
-      navigator.clipboard?.writeText(bubble.textContent)
-        .then(() => flashCopied(bubble))
-        .catch(() => {});
+      copyToClipboard(bubble.textContent, bubble);
     }
     startTime = 0;
   };
@@ -554,6 +552,27 @@ function attachLongPress(bubble) {
   bubble.addEventListener('mousedown',   onStart);
   bubble.addEventListener('mouseup',     onEnd);
   bubble.addEventListener('mouseleave',  onCancel);
+}
+
+function copyToClipboard(text, bubble) {
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(() => flashCopied(bubble))
+      .catch(() => execCopy(text, bubble));
+  } else {
+    execCopy(text, bubble);
+  }
+}
+
+function execCopy(text, bubble) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); flashCopied(bubble); } catch {}
+  document.body.removeChild(ta);
 }
 
 function flashCopied(bubble) {
