@@ -523,46 +523,45 @@ function addBubble(role, text) {
 
 function attachLongPress(bubble) {
   let startTime = 0;
+  let startX = 0, startY = 0;
   let pressTimer = null;
 
-  const dbg = msg => {
-    bubble.dataset.copyMsg = (bubble.dataset.copyMsg || '') + msg + ' | ';
-    bubble.classList.add('copied');
-    clearTimeout(bubble._dbgTimer);
-    bubble._dbgTimer = setTimeout(() => {
-      bubble.classList.remove('copied');
-      bubble.dataset.copyMsg = '';
-    }, 5000);
-  };
-
-  const onStart = () => {
+  const onStart = e => {
     startTime = Date.now();
+    if (e.touches) { startX = e.touches[0].clientX; startY = e.touches[0].clientY; }
     pressTimer = setTimeout(() => bubble.classList.add('pressing'), 400);
-    dbg('START');
   };
 
   const onEnd = () => {
     clearTimeout(pressTimer);
     bubble.classList.remove('pressing');
-    const elapsed = Date.now() - startTime;
-    dbg('END:' + elapsed + 'ms:st=' + startTime);
-    if (startTime && elapsed >= 600) {
+    if (startTime && Date.now() - startTime >= 600) {
       copyToClipboard(bubble.textContent, bubble);
     }
     startTime = 0;
   };
 
-  const onCancel = e => {
+  const onMove = e => {
+    if (!e.touches) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (Math.sqrt(dx * dx + dy * dy) > 10) {
+      clearTimeout(pressTimer);
+      bubble.classList.remove('pressing');
+      startTime = 0;
+    }
+  };
+
+  const onCancel = () => {
     clearTimeout(pressTimer);
     bubble.classList.remove('pressing');
-    dbg('CANCEL:' + e.type);
     startTime = 0;
   };
 
   bubble.addEventListener('touchstart',  onStart,  { passive: true });
   bubble.addEventListener('touchend',    onEnd,    { passive: true });
   bubble.addEventListener('touchcancel', onCancel, { passive: true });
-  bubble.addEventListener('touchmove',   onCancel, { passive: true });
+  bubble.addEventListener('touchmove',   onMove,   { passive: true });
   bubble.addEventListener('mousedown',   onStart);
   bubble.addEventListener('mouseup',     onEnd);
   bubble.addEventListener('mouseleave',  onCancel);
