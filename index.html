@@ -410,6 +410,26 @@
       flex-shrink: 0;
     }
 
+    /* Context banner — appears above chat when a profile/resume context is active */
+    .context-banner {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 14px;
+      background: #0a0a0a;
+      flex-shrink: 0;
+    }
+    .context-banner-label {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--fg-hint);
+      margin-bottom: 3px;
+    }
+    .context-banner-text {
+      font-size: 12px;
+      letter-spacing: 0.3px;
+      color: var(--fg-dim);
+      line-height: 1.5;
+    }
+
     /* ──────────────────────────────────────────── */
     /* LOADING SCREEN                               */
     /* ──────────────────────────────────────────── */
@@ -571,7 +591,15 @@
         </div>
       </div>
 
+      <div class="s-group">
+        <div class="s-label">MEMORY (GOOGLE APPS SCRIPT URL)</div>
+        <input id="memory-url" class="s-input" type="text" placeholder="https://script.google.com/..." autocomplete="off" spellcheck="false">
+        <div class="s-hint">OPTIONAL · CLOUD HISTORY &amp; PROFILE</div>
+      </div>
+
       <button id="init-btn" class="init-btn">[ INITIALIZE ]</button>
+
+      <button id="checkin-btn" class="outline-btn">[ MEMORY CHECK IN ]</button>
 
       <button id="update-btn" class="outline-btn">[ CHECK FOR UPDATE ]</button>
       <div id="update-hint" class="s-hint" style="text-align:center; margin-top:6px; min-height:14px"></div>
@@ -630,6 +658,9 @@
       <span id="summary-title"></span>
       <span id="summary-date"></span>
     </div>
+
+    <!-- Context banner (profile or resume context active) -->
+    <div id="context-banner" class="context-banner" style="display:none"></div>
 
     <!-- Scrollable chat history -->
     <div id="chat-history" class="chat-history">

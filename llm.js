@@ -19,11 +19,34 @@ const LENGTH_INSTRUCTIONS = {
 
 export const RESPONSE_LENGTHS = { BRIEF: 80, CONCISE: 120, VERBOSE: 250 };
 
+export async function generateSummary(messages, apiKey) {
+  const text = messages.map(m => `${m.role}: ${m.content}`).join('\n');
+  const res = await fetch(ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [
+        { role: 'system', content: 'Summarize the conversation. Reply ONLY with valid JSON: {"title":"3-5 word title","summary":"2-3 sentence summary"}. No markdown.' },
+        { role: 'user', content: text },
+      ],
+      temperature: 0.3,
+      max_tokens: 120,
+    }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  const raw = data.choices?.[0]?.message?.content ?? '{}';
+  try { return JSON.parse(raw); } catch { return { title: 'Conversation', summary: raw }; }
+}
+
 // onChunk: optional callback for streaming — if provided, streams and calls onChunk(delta)
 // returns the full reply string either way
-export async function sendMessage(messages, persona, apiKey, maxTokens = 120, onChunk = null, responseLength = 'CONCISE') {
+export async function sendMessage(messages, persona, apiKey, maxTokens = 120, onChunk = null, responseLength = 'CONCISE', profileContext = '', resumeContext = '') {
   const lengthRule = LENGTH_INSTRUCTIONS[responseLength] ?? LENGTH_INSTRUCTIONS.CONCISE;
-  const system = (PERSONAS[persona] ?? PERSONAS.SPARK) + ' ' + lengthRule;
+  let system = (PERSONAS[persona] ?? PERSONAS.SPARK) + ' ' + lengthRule;
+  if (profileContext) system += '\n\n' + profileContext;
+  if (resumeContext) system += '\n\nCONTEXT FROM PREVIOUS CONVERSATION: ' + resumeContext;
   const stream = !!onChunk;
 
   const res = await fetch(ENDPOINT, {

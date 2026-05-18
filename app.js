@@ -1,6 +1,7 @@
-import { sendMessage, RESPONSE_LENGTHS } from './llm.js';
+import { sendMessage, generateSummary, RESPONSE_LENGTHS } from './llm.js';
 import { initTTS, speak, stopSpeaking, isTTSReady } from './tts.js';
 import { isSupported, startListening, stopListening } from './stt.js';
+import { setMemoryURL, isMemoryEnabled, getProfile, saveConversation } from './memory.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────
 const STORAGE = {
@@ -9,6 +10,7 @@ const STORAGE = {
   MODE:            'b19_mode',
   RESPONSE_LENGTH: 'b19_response_length',
   VOICE:           'b19_voice',
+  MEMORY_URL:      'b19_memory_url',
 };
 const SESSIONS_KEY = 'b19_sessions';
 const BAR_COUNT = 28;
@@ -18,6 +20,8 @@ let mode  = 'text'; // 'text' | 'ptt' | 'auto'
 let phase = 'idle'; // 'idle' | 'listening' | 'thinking' | 'speaking'
 let messages = [];
 let currentSession = null;
+let profileContext = '';
+let resumeContext  = '';
 let pttHeld = false;
 let animFrame = null;
 let micAnalyser = null;
@@ -30,6 +34,7 @@ const cfg = {
   mode:           localStorage.getItem(STORAGE.MODE)            || 'text',
   responseLength: localStorage.getItem(STORAGE.RESPONSE_LENGTH) || 'CONCISE',
   voice:          localStorage.getItem(STORAGE.VOICE)           || 'en-US-female',
+  memoryUrl:      localStorage.getItem(STORAGE.MEMORY_URL)      || '',
 };
 
 // ── DOM ───────────────────────────────────────────────────────────────────
@@ -134,7 +139,8 @@ function populateVoicesWithRetry() {
 }
 
 function restoreSettings() {
-  if (cfg.apiKey) $('api-key').value = cfg.apiKey;
+  if (cfg.apiKey)    $('api-key').value    = cfg.apiKey;
+  if (cfg.memoryUrl) $('memory-url').value = cfg.memoryUrl;
 
   document.querySelectorAll('.p-btn:not(.rl-btn)').forEach(b =>
     b.classList.toggle('on', b.dataset.p === cfg.persona));
@@ -192,12 +198,15 @@ function showMain() {
 
   // Render any existing messages (e.g. returning from settings mid-session)
   renderAllMessages();
+
+  initMemory();
 }
 
 // ── Event Listeners ───────────────────────────────────────────────────────
 function setupListeners() {
   $('init-btn').addEventListener('click', onInit);
   $('gear-btn').addEventListener('click', showSettings);
+  $('checkin-btn')?.addEventListener('click', runCheckin);
   $('update-btn').addEventListener('click', checkForUpdate);
   $('menu-btn')?.addEventListener('click', openSidebar);
   document.querySelectorAll('.mode-pill').forEach(btn =>
@@ -251,6 +260,7 @@ function onInit() {
   cfg.persona        = document.querySelector('.p-btn:not(.rl-btn).on')?.dataset.p || 'SPARK';
   cfg.responseLength = document.querySelector('.rl-btn.on')?.dataset.rl || 'CONCISE';
   cfg.voice          = $('settings-voice').value || 'en-US-female';
+  cfg.memoryUrl      = $('memory-url').value.trim();
   save();
   unlockSpeech();
   showLoading();
@@ -276,6 +286,7 @@ function save() {
   localStorage.setItem(STORAGE.MODE,            mode);
   localStorage.setItem(STORAGE.RESPONSE_LENGTH, cfg.responseLength);
   localStorage.setItem(STORAGE.VOICE,           cfg.voice);
+  localStorage.setItem(STORAGE.MEMORY_URL,      cfg.memoryUrl);
 }
 
 // ── Update check ──────────────────────────────────────────────────────────
@@ -389,7 +400,7 @@ async function onSend() {
     const reply = await sendMessage(messages, cfg.persona, cfg.apiKey, maxTokens, delta => {
       bubble.textContent += delta;
       scrollToBottom();
-    }, cfg.responseLength);
+    }, cfg.responseLength, profileContext, resumeContext);
     bubble.classList.remove('streaming');
     messages.push({ role: 'assistant', content: reply });
     attachCopyButton(bubble, reply);
@@ -489,7 +500,7 @@ async function processPTTResult(transcript) {
   try {
     const maxTokens = RESPONSE_LENGTHS[cfg.responseLength] ?? 120;
     // PTT: no streaming — wait for full reply then speak once (iOS TTS reliability)
-    const reply = await sendMessage(messages, cfg.persona, cfg.apiKey, maxTokens, null, cfg.responseLength);
+    const reply = await sendMessage(messages, cfg.persona, cfg.apiKey, maxTokens, null, cfg.responseLength, profileContext, resumeContext);
     messages.push({ role: 'assistant', content: reply });
     addBubble('assistant', reply);
     if (messages.length % 10 === 0) autoSave();
@@ -562,7 +573,7 @@ async function processAutoResult(transcript) {
 
   try {
     const maxTokens = RESPONSE_LENGTHS[cfg.responseLength] ?? 120;
-    const reply = await sendMessage(messages, cfg.persona, cfg.apiKey, maxTokens, null, cfg.responseLength);
+    const reply = await sendMessage(messages, cfg.persona, cfg.apiKey, maxTokens, null, cfg.responseLength, profileContext, resumeContext);
     messages.push({ role: 'assistant', content: reply });
     addBubble('assistant', reply);
     if (messages.length % 10 === 0) autoSave();
@@ -862,6 +873,14 @@ async function autoSave() {
   localStorage.setItem(SESSIONS_KEY, JSON.stringify(index));
 
   showSummaryHeader(currentSession.title, currentSession.updatedAt);
+
+  // Cloud sync to Google Sheets if configured
+  if (isMemoryEnabled()) {
+    generateSummary(messages, cfg.apiKey).then(({ title, summary }) => {
+      const date = new Date().toISOString().slice(0, 10);
+      saveConversation(currentSession.id, date, title || currentSession.title || 'Conversation', summary || '').catch(() => {});
+    }).catch(() => {});
+  }
 }
 
 async function generateSessionTitle() {
@@ -953,6 +972,34 @@ function renderSessionList() {
     item.addEventListener('click', () => restoreSession(s.id));
     list.appendChild(item);
   });
+}
+
+// ── Memory ────────────────────────────────────────────────────────────────
+
+async function initMemory() {
+  if (!cfg.memoryUrl) return;
+  setMemoryURL(cfg.memoryUrl);
+  try {
+    const profile = await getProfile();
+    profileContext = profile.system_prompt || '';
+    if (profileContext) {
+      const banner = $('context-banner');
+      banner.style.display = '';
+      banner.innerHTML = '<div class="context-banner-label">// PROFILE ACTIVE</div>' +
+        `<div class="context-banner-text">${escHtml(profileContext)}</div>`;
+    }
+  } catch {}
+}
+
+async function runCheckin() {
+  showScreen('main');
+  const msg = "Quick check-in — is there anything about the way I've been working with you that you'd like to adjust? Tone, topics, habits, anything.";
+  addBubble('assistant', msg);
+  messages.push({ role: 'assistant', content: msg });
+}
+
+function escHtml(str) {
+  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ── Service worker ────────────────────────────────────────────────────────

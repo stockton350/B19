@@ -1,5 +1,5 @@
-const CACHE = 'b19-v6';
-const ASSETS = ['index.html', 'app.js', 'llm.js', 'tts.js', 'stt.js', 'manifest.json'];
+const CACHE = 'b19-v7';
+const ASSETS = ['index.html', 'app.js', 'llm.js', 'tts.js', 'stt.js', 'memory.js', 'manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
