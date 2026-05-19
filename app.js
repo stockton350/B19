@@ -1,5 +1,5 @@
 import { sendMessage, generateSummary, RESPONSE_LENGTHS } from './llm.js';
-import { initTTS, speak, stopSpeaking, isTTSReady, setTTSApiKey, getVoices } from './tts.js';
+import { initTTS, speak, stopSpeaking, isTTSReady, setTTSApiKey, getVoices, unlockTTS } from './tts.js';
 import { isSupported, startListening, stopListening } from './stt.js';
 import { setMemoryURL, isMemoryEnabled, getProfile, saveConversation } from './memory.js';
 
@@ -174,6 +174,15 @@ function showMain() {
 
 // ── Event Listeners ───────────────────────────────────────────────────────
 function setupListeners() {
+  // Unlock AudioContext on first gesture — required for iOS audio playback
+  const _onFirstGesture = () => {
+    unlockTTS();
+    document.removeEventListener('touchstart', _onFirstGesture);
+    document.removeEventListener('click',      _onFirstGesture);
+  };
+  document.addEventListener('touchstart', _onFirstGesture, { once: true, passive: true });
+  document.addEventListener('click',      _onFirstGesture, { once: true });
+
   $('init-btn').addEventListener('click', onInit);
   $('gear-btn').addEventListener('click', showSettings);
   $('tts-btn').addEventListener('click', toggleTTS);

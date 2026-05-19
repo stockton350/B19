@@ -18,13 +18,21 @@ const VOICES = [
 
 const VOICE_IDS = new Set(VOICES.map(v => v.id));
 
-let _apiKey = null;
-let _audio  = null;
-let _objUrl = null;
+let _apiKey   = null;
+let _audioCtx = null;
+let _source   = null;
 
 export function setTTSApiKey(key) { _apiKey = key; }
 export function getVoices()       { return VOICES; }
 export function isTTSReady()      { return !!_apiKey; }
+
+// Call this from a user gesture (tap/click) to unlock AudioContext on iOS
+export async function unlockTTS() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_audioCtx.state === 'suspended') await _audioCtx.resume();
+  } catch {}
+}
 
 export async function initTTS(onProgress) {
   onProgress?.({ status: 'done', progress: 100 });
@@ -55,28 +63,32 @@ export async function speak(text, voiceId, onStart, onEnd) {
     throw new Error(err.error?.message ?? `HTTP ${res.status}`);
   }
 
-  const blob = await res.blob();
-  _objUrl = URL.createObjectURL(blob);
-  _audio  = new Audio(_objUrl);
+  const arrayBuffer = await res.arrayBuffer();
+
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') await _audioCtx.resume();
+
+  const audioBuffer = await _audioCtx.decodeAudioData(arrayBuffer);
+
+  _source = _audioCtx.createBufferSource();
+  _source.buffer = audioBuffer;
+  _source.connect(_audioCtx.destination);
 
   return new Promise((resolve, reject) => {
-    _audio.onplay  = () => onStart?.();
-    _audio.onended = () => { _cleanup(); onEnd?.(); resolve(); };
-    _audio.onerror = () => { _cleanup(); reject(new Error('audio playback error')); };
-    _audio.play().catch(err => { _cleanup(); reject(err); });
+    _source.onended = () => { _source = null; onEnd?.(); resolve(); };
+    onStart?.();
+    try {
+      _source.start(0);
+    } catch (err) {
+      _source = null;
+      reject(err);
+    }
   });
 }
 
 export function stopSpeaking() {
-  if (_audio) {
-    _audio.pause();
-    _audio.onended = null;
-    _audio.onerror = null;
-    _audio = null;
+  if (_source) {
+    try { _source.stop(); } catch {}
+    _source = null;
   }
-  _cleanup();
-}
-
-function _cleanup() {
-  if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
 }
