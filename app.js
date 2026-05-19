@@ -1,5 +1,5 @@
 import { sendMessage, generateSummary, RESPONSE_LENGTHS } from './llm.js';
-import { initTTS, speak, stopSpeaking, isTTSReady } from './tts.js';
+import { initTTS, speak, stopSpeaking, isTTSReady, setTTSApiKey, getVoices } from './tts.js';
 import { isSupported, startListening, stopListening } from './stt.js';
 import { setMemoryURL, isMemoryEnabled, getProfile, saveConversation } from './memory.js';
 
@@ -10,6 +10,7 @@ const STORAGE = {
   MODE:            'b19_mode',
   RESPONSE_LENGTH: 'b19_response_length',
   VOICE:           'b19_voice',
+  OPENROUTER_KEY:  'b19_openrouter_key',
   MEMORY_URL:      'b19_memory_url',
 };
 const SESSIONS_KEY = 'b19_sessions';
@@ -22,6 +23,7 @@ let messages = [];
 let currentSession = null;
 let profileContext = '';
 let resumeContext  = '';
+let ttsEnabled = true;
 let pttHeld = false;
 let animFrame = null;
 let micAnalyser = null;
@@ -33,7 +35,8 @@ const cfg = {
   persona:        localStorage.getItem(STORAGE.PERSONA)         || 'SPARK',
   mode:           localStorage.getItem(STORAGE.MODE)            || 'text',
   responseLength: localStorage.getItem(STORAGE.RESPONSE_LENGTH) || 'CONCISE',
-  voice:          localStorage.getItem(STORAGE.VOICE)           || 'en-US-female',
+  voice:          localStorage.getItem(STORAGE.VOICE)           || 'af_heart',
+  openRouterKey:  localStorage.getItem(STORAGE.OPENROUTER_KEY)  || '',
   memoryUrl:      localStorage.getItem(STORAGE.MEMORY_URL)      || '',
 };
 
@@ -61,18 +64,6 @@ function unlockAudio() {
   } catch {}
 }
 
-let speechUnlocked = false;
-function unlockSpeech() {
-  if (speechUnlocked || !window.speechSynthesis) return;
-  speechUnlocked = true;
-  unlockAudio();
-  const u = new SpeechSynthesisUtterance(' ');
-  u.volume = 0.001;
-  u.rate   = 0.1;
-  const voices = window.speechSynthesis.getVoices();
-  u.voice = voices.find(v => v.name === cfg.voice) ?? voices.find(v => v.lang.startsWith('en')) ?? null;
-  window.speechSynthesis.speak(u);
-}
 
 function boot() {
   startNewSession();
@@ -81,6 +72,7 @@ function boot() {
   setupListeners();
   setupViewport();
   unlockAudio();
+  if (cfg.openRouterKey) setTTSApiKey(cfg.openRouterKey);
 
   // Disable PTT/AUTO pills if speech recognition unavailable (e.g. HTTP on iOS)
   if (!isSupported()) {
@@ -103,44 +95,23 @@ function buildBars() {
   }
 }
 
-const VOICE_BLOCKLIST = new Set([
-  'Albert','Bad News','Bahh','Bells','Boing','Bubbles','Cellos','Deranged',
-  'Fred','Good News','Hysterical','Jester','Junior','Kathy','Organ',
-  'Pipe Organ','Princess','Ralph','Superstar','Trinoids','Whisper',
-  'Wobble','Zarvox',
-]);
-
 function populateVoices() {
   const sel = $('settings-voice');
   if (!sel) return;
-  const voices = window.speechSynthesis?.getVoices() ?? [];
-  const english = voices.filter(v => v.lang.startsWith('en') && !VOICE_BLOCKLIST.has(v.name));
-  const list = english.length ? english : voices.filter(v => !VOICE_BLOCKLIST.has(v.name));
-  if (!list.length) return;
   sel.innerHTML = '';
-  list.forEach(v => {
+  getVoices().forEach(v => {
     const o = document.createElement('option');
-    o.value = v.name;
-    o.textContent = v.name;
-    o.selected = v.name === cfg.voice;
+    o.value = v.id;
+    o.textContent = v.label;
+    o.selected = v.id === cfg.voice;
     sel.appendChild(o);
   });
 }
 
-function populateVoicesWithRetry() {
-  populateVoices();
-  if ($('settings-voice')?.options.length) return;
-  // iOS often needs a moment after a user gesture before getVoices() returns results
-  let attempts = 0;
-  const t = setInterval(() => {
-    populateVoices();
-    if ($('settings-voice')?.options.length || ++attempts >= 10) clearInterval(t);
-  }, 250);
-}
-
 function restoreSettings() {
-  if (cfg.apiKey)    $('api-key').value    = cfg.apiKey;
-  if (cfg.memoryUrl) $('memory-url').value = cfg.memoryUrl;
+  if (cfg.apiKey)        $('api-key').value        = cfg.apiKey;
+  if (cfg.openRouterKey) $('openrouter-key').value = cfg.openRouterKey;
+  if (cfg.memoryUrl)     $('memory-url').value     = cfg.memoryUrl;
 
   document.querySelectorAll('.p-btn:not(.rl-btn)').forEach(b =>
     b.classList.toggle('on', b.dataset.p === cfg.persona));
@@ -148,10 +119,7 @@ function restoreSettings() {
   document.querySelectorAll('.rl-btn').forEach(b =>
     b.classList.toggle('on', b.dataset.rl === cfg.responseLength));
 
-  populateVoicesWithRetry();
-  if (window.speechSynthesis) {
-    window.speechSynthesis.onvoiceschanged = populateVoices;
-  }
+  populateVoices();
 
   const savedMode = cfg.mode;
   mode = (savedMode === 'ptt' || savedMode === 'PTT') ? 'ptt'
@@ -166,7 +134,7 @@ function showScreen(name) {
 
 function showSettings() {
   showScreen('settings');
-  populateVoicesWithRetry();
+  populateVoices();
 }
 
 async function showLoading() {
@@ -206,6 +174,7 @@ function showMain() {
 function setupListeners() {
   $('init-btn').addEventListener('click', onInit);
   $('gear-btn').addEventListener('click', showSettings);
+  $('tts-btn').addEventListener('click', toggleTTS);
   $('checkin-btn')?.addEventListener('click', runCheckin);
   $('update-btn').addEventListener('click', checkForUpdate);
   $('menu-btn')?.addEventListener('click', openSidebar);
@@ -259,10 +228,11 @@ function onInit() {
   cfg.apiKey         = key;
   cfg.persona        = document.querySelector('.p-btn:not(.rl-btn).on')?.dataset.p || 'SPARK';
   cfg.responseLength = document.querySelector('.rl-btn.on')?.dataset.rl || 'CONCISE';
-  cfg.voice          = $('settings-voice').value || 'en-US-female';
+  cfg.voice          = $('settings-voice').value || 'af_heart';
+  cfg.openRouterKey  = $('openrouter-key').value.trim();
   cfg.memoryUrl      = $('memory-url').value.trim();
+  setTTSApiKey(cfg.openRouterKey);
   save();
-  unlockSpeech();
   showLoading();
 }
 
@@ -286,6 +256,7 @@ function save() {
   localStorage.setItem(STORAGE.MODE,            mode);
   localStorage.setItem(STORAGE.RESPONSE_LENGTH, cfg.responseLength);
   localStorage.setItem(STORAGE.VOICE,           cfg.voice);
+  localStorage.setItem(STORAGE.OPENROUTER_KEY,  cfg.openRouterKey);
   localStorage.setItem(STORAGE.MEMORY_URL,      cfg.memoryUrl);
 }
 
@@ -354,13 +325,11 @@ function setMode(m, persist = true) {
     if (phase === 'speaking') stopSpeaking();
     setPhase('idle');
   } else if (m === 'ptt') {
-    unlockSpeech();
     textArea.style.display = 'none';
     pttArea.style.display  = '';
     setPhase('idle');
     animateIdle();
   } else if (m === 'auto') {
-    unlockSpeech();
     textArea.style.display = 'none';
     pttArea.style.display  = '';
     setPhase('idle');
@@ -381,7 +350,6 @@ async function onSend() {
   const input = $('text-input');
   const text = input.value.trim();
   if (!text || phase !== 'idle') return;
-  unlockSpeech();
 
   input.value = '';
   input.style.height = '';
@@ -436,19 +404,7 @@ function onPTTDown() {
   if (phase === 'speaking') { stopSpeaking(); setPhase('idle'); return; }
   if (phase !== 'idle') { dbg(`↓ skip:ph=${phase}`); return; }
 
-  unlockSpeech();
-
-  // On iOS, speechSynthesis called from async callbacks requires the audio
-  // session to be active. Queue a silent keep-alive utterance during the
-  // gesture so the session stays open through STT + LLM wait.
-  try {
-    const ka = new SpeechSynthesisUtterance('waiting waiting waiting waiting waiting waiting waiting waiting waiting waiting');
-    ka.volume = 0.001;
-    ka.rate   = 0.1;
-    window.speechSynthesis.speak(ka);
-  } catch {}
-
-  // Also unlock WebAudio session so iOS routes speech to speaker
+  // Unlock WebAudio session so iOS routes audio element to speaker
   try {
     const ctx = new AudioContext();
     const buf = ctx.createBuffer(1, 1, 22050);
@@ -506,20 +462,16 @@ async function processPTTResult(transcript) {
     if (messages.length % 10 === 0) autoSave();
 
     setPhase('speaking');
-    // Cancel keep-alive and speak synchronously in the same tick — iOS requires this
-    window.speechSynthesis.cancel();
-    const voices = window.speechSynthesis.getVoices();
-    const utter = new SpeechSynthesisUtterance(reply);
-    utter.voice  = voices.find(v => v.name === cfg.voice) ?? voices.find(v => v.lang.startsWith('en')) ?? null;
-    utter.rate   = 1.05;
-    utter.volume = 1.0;
-    utter.lang   = 'en-US';
-    utter.onend  = () => setPhase('idle');
-    utter.onerror = e => {
-      setPTTStatus(`> TTS ERR: ${e.error}`);
-      setTimeout(() => setPhase('idle'), 3000);
-    };
-    window.speechSynthesis.speak(utter);
+    if (ttsEnabled) {
+      try {
+        await speak(reply, cfg.voice, null, null);
+      } catch (err) {
+        setPTTStatus(`> TTS ERR: ${err.message.slice(0, 24).toUpperCase()}`);
+        setTimeout(() => setPhase('idle'), 3000);
+        return;
+      }
+    }
+    setPhase('idle');
   } catch (err) {
     setPTTStatus(`> ERROR: ${err.message.slice(0, 30).toUpperCase()}`);
     setTimeout(() => setPhase('idle'), 2500);
@@ -563,14 +515,6 @@ async function processAutoResult(transcript) {
 
   setPhase('thinking');
 
-  // Keep audio session alive on iOS while the async LLM call runs
-  try {
-    const ka = new SpeechSynthesisUtterance('waiting waiting waiting waiting waiting waiting waiting waiting waiting waiting');
-    ka.volume = 0.001;
-    ka.rate   = 0.1;
-    window.speechSynthesis.speak(ka);
-  } catch {}
-
   try {
     const maxTokens = RESPONSE_LENGTHS[cfg.responseLength] ?? 120;
     const reply = await sendMessage(messages, cfg.persona, cfg.apiKey, maxTokens, null, cfg.responseLength, profileContext, resumeContext);
@@ -578,31 +522,15 @@ async function processAutoResult(transcript) {
     addBubble('assistant', reply);
     if (messages.length % 10 === 0) autoSave();
 
-    if (mode !== 'auto') return; // user switched away during LLM call
+    if (mode !== 'auto') return;
 
     setPhase('speaking');
-    window.speechSynthesis.cancel();
-    const voices = window.speechSynthesis.getVoices();
-    const utter  = new SpeechSynthesisUtterance(reply);
-    utter.voice  = voices.find(v => v.name === cfg.voice) ?? voices.find(v => v.lang.startsWith('en')) ?? null;
-    utter.rate   = 1.05;
-    utter.volume = 1.0;
-    utter.lang   = 'en-US';
-    utter.onend  = () => {
-      if (mode !== 'auto') return;
-      setPhase('idle');
-      startAutoListen();
-    };
-    utter.onerror = e => {
-      if (e.error === 'interrupted' || e.error === 'canceled') {
-        if (mode === 'auto') { setPhase('idle'); startAutoListen(); }
-        return;
-      }
-      if (mode !== 'auto') return;
-      setPTTStatus(`> TTS ERR: ${e.error}`);
-      setTimeout(() => { if (mode === 'auto') { setPhase('idle'); startAutoListen(); } }, 3000);
-    };
-    window.speechSynthesis.speak(utter);
+    if (ttsEnabled) {
+      try { await speak(reply, cfg.voice, null, null); } catch {}
+    }
+    if (mode !== 'auto') return;
+    setPhase('idle');
+    startAutoListen();
   } catch (err) {
     if (mode !== 'auto') return;
     setPTTStatus(`> ERROR: ${err.message.slice(0, 30).toUpperCase()}`);
@@ -974,6 +902,16 @@ function renderSessionList() {
   });
 }
 
+// ── TTS toggle ────────────────────────────────────────────────────────────
+
+function toggleTTS() {
+  ttsEnabled = !ttsEnabled;
+  if (!ttsEnabled) stopSpeaking();
+  const btn = $('tts-btn');
+  btn.classList.toggle('on', ttsEnabled);
+  btn.textContent = ttsEnabled ? '[ ◉ VOICE ]' : '[ ○ VOICE ]';
+}
+
 // ── Memory ────────────────────────────────────────────────────────────────
 
 async function initMemory() {
@@ -1010,16 +948,13 @@ if ('serviceWorker' in navigator) {
 // ── App visibility / audio recovery ───────────────────────────────────────
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
-    // Reset audio unlock so the next user gesture re-primes the session
-    speechUnlocked = false;
     if (phase === 'listening') {
       stopListening();
       stopMicViz();
       setPhase('idle');
     }
   } else {
-    // Returning to foreground: drop back to TEXT mode — safest recovery
-    try { window.speechSynthesis.cancel(); } catch {}
+    stopSpeaking();
     if (micAudioCtx?.state === 'suspended') micAudioCtx.resume().catch(() => {});
     setMode('text');
   }

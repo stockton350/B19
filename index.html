@@ -258,6 +258,24 @@
     .send-btn:not(:disabled):active { border-color: var(--border-bright); color: var(--fg); }
     .send-btn:disabled { opacity: 0.25; cursor: not-allowed; }
 
+    /* TTS mute toggle */
+    .tts-bar {
+      padding: 4px 12px 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .tts-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--fg-hint);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 5px 12px;
+      cursor: pointer;
+      letter-spacing: 2px;
+    }
+    .tts-btn.on { border-color: var(--fg-dim); color: var(--fg-dim); }
+
     /* ── Debug line ── */
     .dbg-line {
       font-size: 10px;
@@ -568,6 +586,12 @@
       </div>
 
       <div class="s-group">
+        <div class="s-label">OPENROUTER API KEY</div>
+        <input id="openrouter-key" class="s-input" type="password" placeholder="sk-or-••••••••••••••••••••" autocomplete="off" spellcheck="false">
+        <div class="s-hint">TTS · OPENROUTER.AI</div>
+      </div>
+
+      <div class="s-group">
         <div class="s-label">PERSONA</div>
         <div class="p-grp">
           <button class="p-btn" data-p="SPARK">SPARK</button>
@@ -579,7 +603,7 @@
       <div class="s-group">
         <div class="s-label">VOICE</div>
         <select id="settings-voice" class="s-input" style="border-bottom: 1px solid var(--border); padding: 6px 0; color: var(--fg);"></select>
-        <div class="s-hint">ENGLISH VOICES FROM YOUR DEVICE</div>
+        <div class="s-hint">KOKORO VOICES VIA OPENROUTER</div>
       </div>
 
       <div class="s-group">
@@ -681,6 +705,11 @@
         <div id="bars"></div>
         <div id="ptt-status" class="ptt-status">&gt; HOLD TO TALK</div>
         <div id="dbg-line" class="dbg-line"></div>
+      </div>
+
+      <!-- TTS mute toggle — always visible at the bottom -->
+      <div class="tts-bar">
+        <button id="tts-btn" class="tts-btn on">[ ◉ VOICE ]</button>
       </div>
 
     </div>
