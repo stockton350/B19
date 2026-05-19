@@ -18,25 +18,23 @@ const VOICES = [
 
 const VOICE_IDS = new Set(VOICES.map(v => v.id));
 
-// Minimal silent WAV — used to unlock the Audio element on iOS before any fetch
+// Minimal silent WAV — used to unlock audio on iOS before any fetch
 const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
 
-let _apiKey = null;
-let _audio  = null;  // persistent element — created once, reused
-let _objUrl = null;
+let _apiKey  = null;
+let _audio   = null;
+let _objUrl  = null;
+let _stopped = false; // set true when stopSpeaking() is called mid-play
 
 export function setTTSApiKey(key) { _apiKey = key; }
 export function getVoices()       { return VOICES; }
 export function isTTSReady()      { return !!_apiKey; }
 
-// Call from a user gesture to pre-unlock the Audio element on iOS
+// Call once from a user gesture to unlock audio on iOS
 export async function unlockTTS() {
-  if (_audio) return;
-  _audio = new Audio(SILENT_WAV);
-  _audio.volume = 0.001;
-  try { await _audio.play(); } catch {}
-  _audio.pause();
-  _audio.src = '';
+  const a = new Audio(SILENT_WAV);
+  a.volume = 0.001;
+  try { await a.play(); } catch {}
 }
 
 export async function initTTS(onProgress) {
@@ -45,6 +43,8 @@ export async function initTTS(onProgress) {
 
 export async function speak(text, voiceId, onStart, onEnd) {
   stopSpeaking();
+  _stopped = false;
+
   if (!_apiKey) throw new Error('No OpenRouter API key');
 
   const res = await fetch(ENDPOINT, {
@@ -68,32 +68,42 @@ export async function speak(text, voiceId, onStart, onEnd) {
     throw new Error(err.error?.message ?? `HTTP ${res.status}`);
   }
 
-  const blob = await res.blob();
-  if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
-  _objUrl = URL.createObjectURL(blob);
+  // If stopSpeaking() was called while we were fetching, bail out
+  if (_stopped) return;
 
-  if (!_audio) _audio = new Audio();
-  _audio.src = _objUrl;
-  _audio.load();
+  const blob = await res.blob();
+  if (_stopped) return;
+
+  _objUrl = URL.createObjectURL(blob);
+  _audio  = new Audio(_objUrl); // fresh element each call — no state carryover
 
   return new Promise((resolve, reject) => {
-    const done = (err) => {
-      _audio.onended = null;
-      _audio.onerror = null;
-      if (err) reject(err); else { onEnd?.(); resolve(); }
+    const cleanup = () => {
+      _audio = null;
+      if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
     };
-    _audio.onended = () => done();
-    _audio.onerror = () => done(new Error('audio playback error'));
+    _audio.onended  = () => { cleanup(); onEnd?.(); resolve(); };
+    _audio.onerror  = (e) => {
+      console.error('[TTS] audio error', e);
+      cleanup();
+      reject(new Error('audio playback error'));
+    };
     onStart?.();
-    _audio.play().catch(err => done(err));
+    _audio.play().catch(err => {
+      console.error('[TTS] play() rejected', err);
+      cleanup();
+      reject(err);
+    });
   });
 }
 
 export function stopSpeaking() {
+  _stopped = true;
   if (_audio) {
     _audio.pause();
     _audio.onended = null;
     _audio.onerror = null;
+    _audio = null;
   }
   if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
 }
