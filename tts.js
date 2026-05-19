@@ -41,12 +41,28 @@ export async function initTTS(onProgress) {
   onProgress?.({ status: 'done', progress: 100 });
 }
 
-export async function speak(text, voiceId, onStart, onEnd) {
-  stopSpeaking();
-  _stopped = false;
+// Split on sentence-ending punctuation followed by whitespace or end of string.
+// Keeps punctuation attached to the preceding sentence.
+function splitSentences(text) {
+  const parts = [];
+  let buf = '';
+  for (let i = 0; i < text.length; i++) {
+    buf += text[i];
+    if ('.!?'.includes(text[i])) {
+      const next = text[i + 1];
+      if (next === undefined || next === ' ' || next === '\n') {
+        parts.push(buf.trim());
+        buf = '';
+        if (next === ' ' || next === '\n') i++;
+      }
+    }
+  }
+  if (buf.trim()) parts.push(buf.trim());
+  return parts.length ? parts : [text];
+}
 
-  if (!_apiKey) throw new Error('No OpenRouter API key');
-
+// Fetch and play a single chunk of text; resolves when playback ends.
+async function _speakChunk(text, voiceId) {
   const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: {
@@ -68,33 +84,50 @@ export async function speak(text, voiceId, onStart, onEnd) {
     throw new Error(err.error?.message ?? `HTTP ${res.status}`);
   }
 
-  // If stopSpeaking() was called while we were fetching, bail out
   if (_stopped) return;
 
   const blob = await res.blob();
   if (_stopped) return;
 
   _objUrl = URL.createObjectURL(blob);
-  _audio  = new Audio(_objUrl); // fresh element each call — no state carryover
+  _audio  = new Audio(_objUrl);
 
   return new Promise((resolve, reject) => {
     const cleanup = () => {
       _audio = null;
       if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
     };
-    _audio.onended  = () => { cleanup(); onEnd?.(); resolve(); };
+    _audio.onended  = () => { cleanup(); resolve(); };
     _audio.onerror  = (e) => {
       console.error('[TTS] audio error', e);
       cleanup();
       reject(new Error('audio playback error'));
     };
-    onStart?.();
     _audio.play().catch(err => {
       console.error('[TTS] play() rejected', err);
       cleanup();
       reject(err);
     });
   });
+}
+
+// Split the response into sentences and play each via a separate API request,
+// working around the Kokoro model's per-request character limit.
+export async function speak(text, voiceId, onStart, onEnd) {
+  stopSpeaking();
+  _stopped = false;
+
+  if (!_apiKey) throw new Error('No OpenRouter API key');
+
+  const sentences = splitSentences(text);
+  onStart?.();
+
+  for (const sentence of sentences) {
+    if (_stopped) return;
+    await _speakChunk(sentence, voiceId);
+  }
+
+  if (!_stopped) onEnd?.();
 }
 
 export function stopSpeaking() {
