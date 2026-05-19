@@ -18,20 +18,25 @@ const VOICES = [
 
 const VOICE_IDS = new Set(VOICES.map(v => v.id));
 
-let _apiKey   = null;
-let _audioCtx = null;
-let _source   = null;
+// Minimal silent WAV — used to unlock the Audio element on iOS before any fetch
+const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+
+let _apiKey = null;
+let _audio  = null;  // persistent element — created once, reused
+let _objUrl = null;
 
 export function setTTSApiKey(key) { _apiKey = key; }
 export function getVoices()       { return VOICES; }
 export function isTTSReady()      { return !!_apiKey; }
 
-// Call this from a user gesture (tap/click) to unlock AudioContext on iOS
+// Call from a user gesture to pre-unlock the Audio element on iOS
 export async function unlockTTS() {
-  try {
-    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (_audioCtx.state === 'suspended') await _audioCtx.resume();
-  } catch {}
+  if (_audio) return;
+  _audio = new Audio(SILENT_WAV);
+  _audio.volume = 0.001;
+  try { await _audio.play(); } catch {}
+  _audio.pause();
+  _audio.src = '';
 }
 
 export async function initTTS(onProgress) {
@@ -63,42 +68,32 @@ export async function speak(text, voiceId, onStart, onEnd) {
     throw new Error(err.error?.message ?? `HTTP ${res.status}`);
   }
 
-  const arrayBuffer = await res.arrayBuffer();
+  const blob = await res.blob();
+  if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
+  _objUrl = URL.createObjectURL(blob);
 
-  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (_audioCtx.state === 'suspended') await _audioCtx.resume();
-
-  const audioBuffer = await _audioCtx.decodeAudioData(arrayBuffer);
-
-  _source = _audioCtx.createBufferSource();
-  _source.buffer = audioBuffer;
-  _source.connect(_audioCtx.destination);
+  if (!_audio) _audio = new Audio();
+  _audio.src = _objUrl;
+  _audio.load();
 
   return new Promise((resolve, reject) => {
-    // Timeout fallback — if onended never fires (iOS quirk), resolve anyway
-    const maxMs = Math.max(15000, text.length * 80);
-    const timer = setTimeout(() => { _source = null; onEnd?.(); resolve(); }, maxMs);
-
-    _source.onended = () => {
-      clearTimeout(timer);
-      _source = null;
-      onEnd?.();
-      resolve();
+    const done = (err) => {
+      _audio.onended = null;
+      _audio.onerror = null;
+      if (err) reject(err); else { onEnd?.(); resolve(); }
     };
+    _audio.onended = () => done();
+    _audio.onerror = () => done(new Error('audio playback error'));
     onStart?.();
-    try {
-      _source.start(0);
-    } catch (err) {
-      clearTimeout(timer);
-      _source = null;
-      reject(err);
-    }
+    _audio.play().catch(err => done(err));
   });
 }
 
 export function stopSpeaking() {
-  if (_source) {
-    try { _source.stop(); } catch {}
-    _source = null;
+  if (_audio) {
+    _audio.pause();
+    _audio.onended = null;
+    _audio.onerror = null;
   }
+  if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
 }
