@@ -18,29 +18,33 @@ const VOICES = [
 
 const VOICE_IDS = new Set(VOICES.map(v => v.id));
 
-// Minimal silent WAV — used to unlock audio on iOS before any fetch
-const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-
-let _apiKey  = null;
-// Single persistent element — iOS activation is per-element, so reusing it
-// after the first user gesture allows play() from async contexts.
-const _audio = new Audio();
-let _objUrl  = null;
-let _stopped = false;
-// Lets stopSpeaking() resolve a mid-playback promise so callers don't hang.
-let _resolveChunk = null;
+let _apiKey    = null;
+// Singleton AudioContext — once unlocked via a user gesture it stays unlocked,
+// so decodeAudioData + source.start() work from async contexts on iOS.
+let _ctx       = null;
+let _sources   = []; // scheduled BufferSourceNodes currently live
+let _stopped   = false;
+let _resolveEnd = null;
 
 export function setTTSApiKey(key) { _apiKey = key; }
 export function getVoices()       { return VOICES; }
 export function isTTSReady()      { return !!_apiKey; }
 
-// Call once from a user gesture to activate the persistent element on iOS.
+function _getCtx() {
+  if (!_ctx || _ctx.state === 'closed') _ctx = new AudioContext();
+  return _ctx;
+}
+
+// Call once from a user gesture. Resumes the AudioContext and warms it up
+// with a silent buffer so iOS marks it as activated for async playback.
 export async function unlockTTS() {
-  _audio.src = SILENT_WAV;
-  _audio.volume = 0.001;
-  try { await _audio.play(); } catch {}
-  _audio.pause();
-  _audio.src = '';
+  const ctx = _getCtx();
+  if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+  const silent = ctx.createBuffer(1, 1, ctx.sampleRate);
+  const src    = ctx.createBufferSource();
+  src.buffer   = silent;
+  src.connect(ctx.destination);
+  src.start(0);
 }
 
 export async function initTTS(onProgress) {
@@ -67,7 +71,7 @@ function splitSentences(text) {
 }
 
 // Fetch TTS audio for a text chunk; returns a Blob promise.
-// Called early (while other audio plays or LLM is still streaming) to hide latency.
+// Starting this early (while other audio plays or LLM is still streaming) hides latency.
 export async function fetchTTSBlob(text, voiceId) {
   if (!_apiKey) throw new Error('No OpenRouter API key');
 
@@ -95,72 +99,92 @@ export async function fetchTTSBlob(text, voiceId) {
   return res.blob();
 }
 
-// Play a single blob on the persistent Audio element.
-async function _playBlob(blob) {
-  if (_stopped) return;
-
-  if (_objUrl) { URL.revokeObjectURL(_objUrl); }
-  _objUrl = URL.createObjectURL(blob);
-
-  _audio.onended = null;
-  _audio.onerror = null;
-  _audio.src = _objUrl;
-  _audio.load();
-
-  return new Promise((resolve, reject) => {
-    _resolveChunk = resolve;
-
-    _audio.onended = () => {
-      _resolveChunk = null;
-      if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
-      resolve();
-    };
-    _audio.onerror = (e) => {
-      console.error('[TTS] audio error', e);
-      _resolveChunk = null;
-      if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
-      reject(new Error('audio playback error'));
-    };
-    _audio.play().catch(err => {
-      console.error('[TTS] play() rejected', err);
-      _resolveChunk = null;
-      if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
-      reject(err);
-    });
-  });
+// Decode a Blob into an AudioBuffer via the shared context.
+async function _decode(blob) {
+  const ctx = _getCtx();
+  if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+  const ab = await blob.arrayBuffer();
+  // Use callback form for widest iOS compatibility
+  return new Promise((resolve, reject) => ctx.decodeAudioData(ab, resolve, reject));
 }
 
-// Play an ordered list of blob promises. Blobs may already be in-flight (pre-fetched);
-// plays each in sequence as it resolves, eliminating inter-sentence gaps.
+// Play an ordered list of blob promises with zero gap between them.
+// Blobs may already be in-flight (pre-fetched); each is decoded as it resolves
+// and scheduled on the AudioContext timeline immediately after the previous one.
+// Because AudioContext scheduling is sample-accurate, there is no load()/play()
+// round-trip between sentences.
 export async function speakBlobs(blobPromises, onStart, onEnd) {
   stopSpeaking();
   _stopped = false;
 
+  const ctx = _getCtx();
+  if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+
   onStart?.();
+
+  let scheduleAt = ctx.currentTime;
+  let lastSrc    = null;
 
   for (const blobPromise of blobPromises) {
     if (_stopped) return;
+
     const blob = await blobPromise;
     if (_stopped) return;
-    await _playBlob(blob);
+
+    let audioBuf;
+    try {
+      audioBuf = await _decode(blob);
+    } catch (e) {
+      console.error('[TTS] decode error', e);
+      continue;
+    }
+    if (_stopped) return;
+
+    // If context was suspended during decode, resume and keep schedule coherent
+    if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+
+    const startAt  = Math.max(ctx.currentTime, scheduleAt);
+    scheduleAt     = startAt + audioBuf.duration;
+
+    const src = ctx.createBufferSource();
+    src.buffer = audioBuf;
+    src.connect(ctx.destination);
+    _sources.push(src);
+    src.start(startAt);
+    lastSrc = src;
   }
+
+  if (!lastSrc || _stopped) {
+    if (!_stopped) onEnd?.();
+    return;
+  }
+
+  // Wait for the final scheduled buffer to end
+  await new Promise(resolve => {
+    _resolveEnd = resolve;
+    lastSrc.onended = () => {
+      _resolveEnd = null;
+      _sources = _sources.filter(s => s !== lastSrc);
+      resolve();
+    };
+  });
 
   if (!_stopped) onEnd?.();
 }
 
 // Convenience: split text into sentences, fetch all blobs in parallel, play in order.
 export async function speak(text, voiceId, onStart, onEnd) {
-  const sentences = splitSentences(text);
+  const sentences   = splitSentences(text);
   const blobPromises = sentences.map(s => fetchTTSBlob(s, voiceId));
   await speakBlobs(blobPromises, onStart, onEnd);
 }
 
 export function stopSpeaking() {
   _stopped = true;
-  _audio.pause();
-  _audio.onended = null;
-  _audio.onerror = null;
-  if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
-  _resolveChunk?.();
-  _resolveChunk = null;
+  for (const src of _sources) {
+    try { src.stop(0); src.disconnect(); } catch {}
+  }
+  _sources = [];
+  _resolveEnd?.();
+  _resolveEnd = null;
 }
