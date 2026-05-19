@@ -71,7 +71,6 @@ function boot() {
   restoreSettings();
   setupListeners();
   setupViewport();
-  unlockAudio();
   if (cfg.openRouterKey) setTTSApiKey(cfg.openRouterKey);
 
   // Disable PTT/AUTO pills if speech recognition unavailable (e.g. HTTP on iOS)
@@ -406,17 +405,6 @@ function onPTTDown() {
   if (mode !== 'ptt') { dbg(`↓ skip:not-ptt`); return; }
   if (phase === 'speaking') { stopSpeaking(); setPhase('idle'); return; }
   if (phase !== 'idle') { dbg(`↓ skip:ph=${phase}`); return; }
-
-  // Unlock WebAudio session so iOS routes audio element to speaker
-  try {
-    const ctx = new AudioContext();
-    const buf = ctx.createBuffer(1, 1, 22050);
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.connect(ctx.destination);
-    src.start(0);
-    src.onended = () => ctx.close();
-  } catch {}
 
   pttHeld = true;
   setPhase('listening');
