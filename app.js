@@ -471,12 +471,10 @@ async function processPTTResult(transcript) {
 
 // ── AUTO mode ─────────────────────────────────────────────────────────────
 function startAutoListen() {
-  if (mode !== 'auto' || phase !== 'idle') return;
+  if (mode !== 'auto') return;
+  if (phase !== 'idle' && phase !== 'listening') return;
 
-  setPhase('listening');
-  // No startMicViz() in AUTO — using both getUserMedia and SpeechRecognition
-  // simultaneously causes iOS audio session conflicts when switching to PTT.
-  // The bar animation from setPhase is sufficient feedback.
+  if (phase !== 'listening') setPhase('listening');
 
   startListening({
     onResult: async transcript => {
@@ -491,8 +489,8 @@ function startAutoListen() {
     },
     onEnd: () => {
       if (mode !== 'auto' || phase !== 'listening') return;
-      setPhase('idle');
-      setTimeout(() => { if (mode === 'auto') startAutoListen(); }, 400);
+      // Stay in listening phase — silently restart without toggling to standby
+      setTimeout(() => { if (mode === 'auto') startAutoListen(); }, 150);
     },
   });
 }
