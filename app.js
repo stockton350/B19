@@ -51,19 +51,6 @@ const screens = {
 };
 
 // ── Boot ──────────────────────────────────────────────────────────────────
-function unlockAudio() {
-  // Play a silent WebAudio buffer to unlock the iOS audio session for
-  // speechSynthesis speaker output before any user interaction is needed.
-  try {
-    const ctx = new AudioContext();
-    const buf = ctx.createBuffer(1, 1, 22050);
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.connect(ctx.destination);
-    src.start(0);
-    src.onended = () => ctx.close();
-  } catch {}
-}
 
 
 function boot() {
