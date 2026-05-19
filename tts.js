@@ -27,7 +27,7 @@ let _apiKey  = null;
 const _audio = new Audio();
 let _objUrl  = null;
 let _stopped = false;
-// Lets stopSpeaking() resolve a mid-playback chunk promise so callers don't hang.
+// Lets stopSpeaking() resolve a mid-playback promise so callers don't hang.
 let _resolveChunk = null;
 
 export function setTTSApiKey(key) { _apiKey = key; }
@@ -66,8 +66,11 @@ function splitSentences(text) {
   return parts.length ? parts : [text];
 }
 
-// Fetch and play a single chunk via the persistent element; resolves when done.
-async function _speakChunk(text, voiceId) {
+// Fetch TTS audio for a text chunk; returns a Blob promise.
+// Called early (while other audio plays or LLM is still streaming) to hide latency.
+export async function fetchTTSBlob(text, voiceId) {
+  if (!_apiKey) throw new Error('No OpenRouter API key');
+
   const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: {
@@ -89,15 +92,16 @@ async function _speakChunk(text, voiceId) {
     throw new Error(err.error?.message ?? `HTTP ${res.status}`);
   }
 
-  if (_stopped) return;
+  return res.blob();
+}
 
-  const blob = await res.blob();
+// Play a single blob on the persistent Audio element.
+async function _playBlob(blob) {
   if (_stopped) return;
 
   if (_objUrl) { URL.revokeObjectURL(_objUrl); }
   _objUrl = URL.createObjectURL(blob);
 
-  // Clear stale handlers, swap source, reload into the persistent element
   _audio.onended = null;
   _audio.onerror = null;
   _audio.src = _objUrl;
@@ -126,23 +130,29 @@ async function _speakChunk(text, voiceId) {
   });
 }
 
-// Split the response into sentences and play each via a separate API request,
-// working around the Kokoro model's per-request character limit.
-export async function speak(text, voiceId, onStart, onEnd) {
+// Play an ordered list of blob promises. Blobs may already be in-flight (pre-fetched);
+// plays each in sequence as it resolves, eliminating inter-sentence gaps.
+export async function speakBlobs(blobPromises, onStart, onEnd) {
   stopSpeaking();
   _stopped = false;
 
-  if (!_apiKey) throw new Error('No OpenRouter API key');
-
-  const sentences = splitSentences(text);
   onStart?.();
 
-  for (const sentence of sentences) {
+  for (const blobPromise of blobPromises) {
     if (_stopped) return;
-    await _speakChunk(sentence, voiceId);
+    const blob = await blobPromise;
+    if (_stopped) return;
+    await _playBlob(blob);
   }
 
   if (!_stopped) onEnd?.();
+}
+
+// Convenience: split text into sentences, fetch all blobs in parallel, play in order.
+export async function speak(text, voiceId, onStart, onEnd) {
+  const sentences = splitSentences(text);
+  const blobPromises = sentences.map(s => fetchTTSBlob(s, voiceId));
+  await speakBlobs(blobPromises, onStart, onEnd);
 }
 
 export function stopSpeaking() {
@@ -151,7 +161,6 @@ export function stopSpeaking() {
   _audio.onended = null;
   _audio.onerror = null;
   if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
-  // Resolve any pending chunk promise so the speak() loop can unwind cleanly.
   _resolveChunk?.();
   _resolveChunk = null;
 }
