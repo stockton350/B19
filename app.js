@@ -98,8 +98,11 @@ function buildBars() {
 function populateVoices() {
   const sel = $('settings-voice');
   if (!sel) return;
+  const voices = getVoices();
+  // Migrate stale browser voice name to a valid Kokoro ID
+  if (!voices.find(v => v.id === cfg.voice)) cfg.voice = 'af_heart';
   sel.innerHTML = '';
-  getVoices().forEach(v => {
+  voices.forEach(v => {
     const o = document.createElement('option');
     o.value = v.id;
     o.textContent = v.label;

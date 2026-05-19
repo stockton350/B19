@@ -16,6 +16,8 @@ const VOICES = [
   { id: 'bm_lewis',    label: 'LEWIS (UK male)' },
 ];
 
+const VOICE_IDS = new Set(VOICES.map(v => v.id));
+
 let _apiKey = null;
 let _audio  = null;
 let _objUrl = null;
@@ -43,7 +45,7 @@ export async function speak(text, voiceId, onStart, onEnd) {
     body: JSON.stringify({
       model: MODEL,
       input: text,
-      voice: voiceId || 'af_heart',
+      voice: VOICE_IDS.has(voiceId) ? voiceId : 'af_heart',
       response_format: 'mp3',
     }),
   });
