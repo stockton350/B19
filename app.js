@@ -1,5 +1,5 @@
 import { sendMessage, generateSummary, RESPONSE_LENGTHS } from './llm.js';
-import { initTTS, speak, stopSpeaking, isTTSReady, setTTSApiKey, getVoices, unlockTTS } from './tts.js';
+import { initTTS, speak, stopSpeaking, isTTSReady, setTTSApiKey, getVoices, unlockTTS, fetchTTSBlob, speakBlobs } from './tts.js';
 import { isSupported, startListening, stopListening } from './stt.js';
 import { setMemoryURL, isMemoryEnabled, getProfile, saveConversation } from './memory.js';
 
@@ -12,6 +12,7 @@ const STORAGE = {
   VOICE:           'b19_voice',
   OPENROUTER_KEY:  'b19_openrouter_key',
   MEMORY_URL:      'b19_memory_url',
+  DEBUG:           'b19_debug',
 };
 const SESSIONS_KEY = 'b19_sessions';
 const BAR_COUNT = 28;
@@ -37,6 +38,7 @@ const cfg = {
   voice:          localStorage.getItem(STORAGE.VOICE)           || 'af_heart',
   openRouterKey:  localStorage.getItem(STORAGE.OPENROUTER_KEY)  || '',
   memoryUrl:      localStorage.getItem(STORAGE.MEMORY_URL)      || '',
+  debug:          localStorage.getItem(STORAGE.DEBUG)           === 'true',
 };
 
 // ── DOM ───────────────────────────────────────────────────────────────────
@@ -71,6 +73,7 @@ function boot() {
   setupListeners();
   setupViewport();
   if (cfg.openRouterKey) setTTSApiKey(cfg.openRouterKey);
+  initDebug();
 
   // Disable PTT/AUTO pills if speech recognition unavailable (e.g. HTTP on iOS)
   if (!isSupported()) {
@@ -119,6 +122,8 @@ function restoreSettings() {
 
   document.querySelectorAll('.rl-btn').forEach(b =>
     b.classList.toggle('on', b.dataset.rl === cfg.responseLength));
+
+  $('debug-btn')?.classList.toggle('on', cfg.debug);
 
   populateVoices();
 
@@ -199,6 +204,7 @@ function setupListeners() {
     b.addEventListener('click', () => setResponseLength(b.dataset.rl)));
 
   $('settings-voice')?.addEventListener('change', e => { cfg.voice = e.target.value; save(); });
+  $('debug-btn')?.addEventListener('click', toggleDebug);
 
   // Text input
   const input = $('text-input');
@@ -267,6 +273,42 @@ function save() {
   localStorage.setItem(STORAGE.VOICE,           cfg.voice);
   localStorage.setItem(STORAGE.OPENROUTER_KEY,  cfg.openRouterKey);
   localStorage.setItem(STORAGE.MEMORY_URL,      cfg.memoryUrl);
+  localStorage.setItem(STORAGE.DEBUG,           cfg.debug);
+}
+
+// ── Debug console (Eruda) ─────────────────────────────────────────────────
+function initDebug() {
+  if (!cfg.debug) return;
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/eruda';
+  s.onload = () => window.eruda?.init();
+  document.head.appendChild(s);
+}
+
+function toggleDebug() {
+  cfg.debug = !cfg.debug;
+  save();
+  $('debug-btn').classList.toggle('on', cfg.debug);
+  if (cfg.debug) {
+    if (window.eruda) { window.eruda.init(); }
+    else {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/eruda';
+      s.onload = () => window.eruda?.init();
+      document.head.appendChild(s);
+    }
+  } else {
+    window.eruda?.destroy();
+  }
+}
+
+// Returns the index of the first sentence-ending punctuation followed by
+// a space or newline in buf, or -1 if no complete sentence boundary found.
+function firstSentenceEnd(buf) {
+  for (let i = 0; i < buf.length; i++) {
+    if ('.!?'.includes(buf[i]) && (buf[i + 1] === ' ' || buf[i + 1] === '\n')) return i;
+  }
+  return -1;
 }
 
 // ── Update check ──────────────────────────────────────────────────────────
@@ -453,15 +495,30 @@ async function processPTTResult(transcript) {
 
   try {
     const maxTokens = RESPONSE_LENGTHS[cfg.responseLength] ?? 120;
-    // PTT: no streaming — wait for full reply then speak once (iOS TTS reliability)
-    const reply = await sendMessage(messages, cfg.persona, cfg.apiKey, maxTokens, null, cfg.responseLength, profileContext, resumeContext);
+    // Stream the LLM response and pre-fetch TTS blobs as each sentence completes,
+    // so playback can start immediately after LLM finishes rather than waiting for TTS.
+    const blobPromises = [];
+    let streamBuf = '';
+    const reply = await sendMessage(messages, cfg.persona, cfg.apiKey, maxTokens, delta => {
+      streamBuf += delta;
+      let idx;
+      while ((idx = firstSentenceEnd(streamBuf)) !== -1) {
+        const sentence = streamBuf.slice(0, idx + 1).trim();
+        streamBuf = streamBuf.slice(idx + 2).trimStart();
+        if (sentence) blobPromises.push(fetchTTSBlob(sentence, cfg.voice));
+      }
+    }, cfg.responseLength, profileContext, resumeContext);
+
+    if (streamBuf.trim()) blobPromises.push(fetchTTSBlob(streamBuf.trim(), cfg.voice));
+    if (!blobPromises.length) blobPromises.push(fetchTTSBlob(reply, cfg.voice));
+
     messages.push({ role: 'assistant', content: reply });
     addBubble('assistant', reply);
     if (messages.length % 10 === 0) autoSave();
 
     setPhase('speaking');
     try {
-      await speak(reply, cfg.voice, null, null);
+      await speakBlobs(blobPromises);
     } catch (err) {
       setPTTStatus(`> TTS ERR: ${err.message.slice(0, 24).toUpperCase()}`);
       setTimeout(() => setPhase('idle'), 3000);
@@ -511,7 +568,21 @@ async function processAutoResult(transcript) {
 
   try {
     const maxTokens = RESPONSE_LENGTHS[cfg.responseLength] ?? 120;
-    const reply = await sendMessage(messages, cfg.persona, cfg.apiKey, maxTokens, null, cfg.responseLength, profileContext, resumeContext);
+    const blobPromises = [];
+    let streamBuf = '';
+    const reply = await sendMessage(messages, cfg.persona, cfg.apiKey, maxTokens, delta => {
+      streamBuf += delta;
+      let idx;
+      while ((idx = firstSentenceEnd(streamBuf)) !== -1) {
+        const sentence = streamBuf.slice(0, idx + 1).trim();
+        streamBuf = streamBuf.slice(idx + 2).trimStart();
+        if (sentence) blobPromises.push(fetchTTSBlob(sentence, cfg.voice));
+      }
+    }, cfg.responseLength, profileContext, resumeContext);
+
+    if (streamBuf.trim()) blobPromises.push(fetchTTSBlob(streamBuf.trim(), cfg.voice));
+    if (!blobPromises.length) blobPromises.push(fetchTTSBlob(reply, cfg.voice));
+
     messages.push({ role: 'assistant', content: reply });
     addBubble('assistant', reply);
     if (messages.length % 10 === 0) autoSave();
@@ -519,7 +590,7 @@ async function processAutoResult(transcript) {
     if (mode !== 'auto') return;
 
     setPhase('speaking');
-    try { await speak(reply, cfg.voice, null, null); } catch {}
+    try { await speakBlobs(blobPromises); } catch {}
     if (mode !== 'auto') return;
     setPhase('idle');
     startAutoListen();
