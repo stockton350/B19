@@ -22,19 +22,25 @@ const VOICE_IDS = new Set(VOICES.map(v => v.id));
 const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
 
 let _apiKey  = null;
-let _audio   = null;
+// Single persistent element — iOS activation is per-element, so reusing it
+// after the first user gesture allows play() from async contexts.
+const _audio = new Audio();
 let _objUrl  = null;
-let _stopped = false; // set true when stopSpeaking() is called mid-play
+let _stopped = false;
+// Lets stopSpeaking() resolve a mid-playback chunk promise so callers don't hang.
+let _resolveChunk = null;
 
 export function setTTSApiKey(key) { _apiKey = key; }
 export function getVoices()       { return VOICES; }
 export function isTTSReady()      { return !!_apiKey; }
 
-// Call once from a user gesture to unlock audio on iOS
+// Call once from a user gesture to activate the persistent element on iOS.
 export async function unlockTTS() {
-  const a = new Audio(SILENT_WAV);
-  a.volume = 0.001;
-  try { await a.play(); } catch {}
+  _audio.src = SILENT_WAV;
+  _audio.volume = 0.001;
+  try { await _audio.play(); } catch {}
+  _audio.pause();
+  _audio.src = '';
 }
 
 export async function initTTS(onProgress) {
@@ -42,7 +48,6 @@ export async function initTTS(onProgress) {
 }
 
 // Split on sentence-ending punctuation followed by whitespace or end of string.
-// Keeps punctuation attached to the preceding sentence.
 function splitSentences(text) {
   const parts = [];
   let buf = '';
@@ -61,7 +66,7 @@ function splitSentences(text) {
   return parts.length ? parts : [text];
 }
 
-// Fetch and play a single chunk of text; resolves when playback ends.
+// Fetch and play a single chunk via the persistent element; resolves when done.
 async function _speakChunk(text, voiceId) {
   const res = await fetch(ENDPOINT, {
     method: 'POST',
@@ -89,23 +94,33 @@ async function _speakChunk(text, voiceId) {
   const blob = await res.blob();
   if (_stopped) return;
 
+  if (_objUrl) { URL.revokeObjectURL(_objUrl); }
   _objUrl = URL.createObjectURL(blob);
-  _audio  = new Audio(_objUrl);
+
+  // Clear stale handlers, swap source, reload into the persistent element
+  _audio.onended = null;
+  _audio.onerror = null;
+  _audio.src = _objUrl;
+  _audio.load();
 
   return new Promise((resolve, reject) => {
-    const cleanup = () => {
-      _audio = null;
+    _resolveChunk = resolve;
+
+    _audio.onended = () => {
+      _resolveChunk = null;
       if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
+      resolve();
     };
-    _audio.onended  = () => { cleanup(); resolve(); };
-    _audio.onerror  = (e) => {
+    _audio.onerror = (e) => {
       console.error('[TTS] audio error', e);
-      cleanup();
+      _resolveChunk = null;
+      if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
       reject(new Error('audio playback error'));
     };
     _audio.play().catch(err => {
       console.error('[TTS] play() rejected', err);
-      cleanup();
+      _resolveChunk = null;
+      if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
       reject(err);
     });
   });
@@ -132,11 +147,11 @@ export async function speak(text, voiceId, onStart, onEnd) {
 
 export function stopSpeaking() {
   _stopped = true;
-  if (_audio) {
-    _audio.pause();
-    _audio.onended = null;
-    _audio.onerror = null;
-    _audio = null;
-  }
+  _audio.pause();
+  _audio.onended = null;
+  _audio.onerror = null;
   if (_objUrl) { URL.revokeObjectURL(_objUrl); _objUrl = null; }
+  // Resolve any pending chunk promise so the speak() loop can unwind cleanly.
+  _resolveChunk?.();
+  _resolveChunk = null;
 }
