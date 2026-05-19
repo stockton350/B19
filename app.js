@@ -23,7 +23,6 @@ let messages = [];
 let currentSession = null;
 let profileContext = '';
 let resumeContext  = '';
-let ttsEnabled = true;
 let pttHeld = false;
 let animFrame = null;
 let micAnalyser = null;
@@ -185,7 +184,6 @@ function setupListeners() {
 
   $('init-btn').addEventListener('click', onInit);
   $('gear-btn').addEventListener('click', showSettings);
-  $('tts-btn').addEventListener('click', toggleTTS);
   $('checkin-btn')?.addEventListener('click', runCheckin);
   $('update-btn').addEventListener('click', checkForUpdate);
   $('menu-btn')?.addEventListener('click', openSidebar);
@@ -462,14 +460,12 @@ async function processPTTResult(transcript) {
     if (messages.length % 10 === 0) autoSave();
 
     setPhase('speaking');
-    if (ttsEnabled) {
-      try {
-        await speak(reply, cfg.voice, null, null);
-      } catch (err) {
-        setPTTStatus(`> TTS ERR: ${err.message.slice(0, 24).toUpperCase()}`);
-        setTimeout(() => setPhase('idle'), 3000);
-        return;
-      }
+    try {
+      await speak(reply, cfg.voice, null, null);
+    } catch (err) {
+      setPTTStatus(`> TTS ERR: ${err.message.slice(0, 24).toUpperCase()}`);
+      setTimeout(() => setPhase('idle'), 3000);
+      return;
     }
     setPhase('idle');
   } catch (err) {
@@ -523,9 +519,7 @@ async function processAutoResult(transcript) {
     if (mode !== 'auto') return;
 
     setPhase('speaking');
-    if (ttsEnabled) {
-      try { await speak(reply, cfg.voice, null, null); } catch {}
-    }
+    try { await speak(reply, cfg.voice, null, null); } catch {}
     if (mode !== 'auto') return;
     setPhase('idle');
     startAutoListen();
@@ -900,15 +894,6 @@ function renderSessionList() {
   });
 }
 
-// ── TTS toggle ────────────────────────────────────────────────────────────
-
-function toggleTTS() {
-  ttsEnabled = !ttsEnabled;
-  if (!ttsEnabled) stopSpeaking();
-  const btn = $('tts-btn');
-  btn.classList.toggle('on', ttsEnabled);
-  btn.textContent = ttsEnabled ? '[ ◉ VOICE ]' : '[ ○ VOICE ]';
-}
 
 // ── Memory ────────────────────────────────────────────────────────────────
 

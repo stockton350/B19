@@ -75,11 +75,21 @@ export async function speak(text, voiceId, onStart, onEnd) {
   _source.connect(_audioCtx.destination);
 
   return new Promise((resolve, reject) => {
-    _source.onended = () => { _source = null; onEnd?.(); resolve(); };
+    // Timeout fallback — if onended never fires (iOS quirk), resolve anyway
+    const maxMs = Math.max(15000, text.length * 80);
+    const timer = setTimeout(() => { _source = null; onEnd?.(); resolve(); }, maxMs);
+
+    _source.onended = () => {
+      clearTimeout(timer);
+      _source = null;
+      onEnd?.();
+      resolve();
+    };
     onStart?.();
     try {
       _source.start(0);
     } catch (err) {
+      clearTimeout(timer);
       _source = null;
       reject(err);
     }

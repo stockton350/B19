@@ -258,23 +258,6 @@
     .send-btn:not(:disabled):active { border-color: var(--border-bright); color: var(--fg); }
     .send-btn:disabled { opacity: 0.25; cursor: not-allowed; }
 
-    /* TTS mute toggle */
-    .tts-bar {
-      padding: 4px 12px 10px;
-      display: flex;
-      justify-content: flex-end;
-    }
-    .tts-btn {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--fg-hint);
-      font-family: var(--font);
-      font-size: 11px;
-      padding: 5px 12px;
-      cursor: pointer;
-      letter-spacing: 2px;
-    }
-    .tts-btn.on { border-color: var(--fg-dim); color: var(--fg-dim); }
 
     /* ── Debug line ── */
     .dbg-line {
@@ -705,11 +688,6 @@
         <div id="bars"></div>
         <div id="ptt-status" class="ptt-status">&gt; HOLD TO TALK</div>
         <div id="dbg-line" class="dbg-line"></div>
-      </div>
-
-      <!-- TTS mute toggle — always visible at the bottom -->
-      <div class="tts-bar">
-        <button id="tts-btn" class="tts-btn on">[ ◉ VOICE ]</button>
       </div>
 
     </div>
