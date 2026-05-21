@@ -965,8 +965,12 @@ function renderSessionList() {
 // ── Backup ────────────────────────────────────────────────────────────────
 
 async function exportSettings() {
-  const data = { apiKey: cfg.apiKey, openRouterKey: cfg.openRouterKey };
-  if (cfg.memoryUrl) data.memoryUrl = cfg.memoryUrl;
+  const apiKey        = cfg.apiKey        || $('api-key').value.trim();
+  const openRouterKey = cfg.openRouterKey || $('openrouter-key').value.trim();
+  const memoryUrl     = cfg.memoryUrl     || $('memory-url').value.trim();
+  if (!apiKey) { flashBtn('export-btn', 'ENTER KEYS FIRST'); return; }
+  const data = { apiKey, openRouterKey };
+  if (memoryUrl) data.memoryUrl = memoryUrl;
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const file = new File([blob], 'b19-settings.json', { type: 'application/json' });
   if (navigator.share && navigator.canShare?.({ files: [file] })) {
