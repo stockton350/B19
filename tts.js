@@ -47,6 +47,23 @@ export async function unlockTTS() {
   src.start(0);
 }
 
+// Play a short audible ding to activate OS audio routing within a user gesture.
+export function playDing() {
+  const ctx = _getCtx();
+  if (ctx.state !== 'running') return;
+  const osc  = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.type = 'sine';
+  osc.frequency.value = 960;
+  gain.gain.setValueAtTime(0.07, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.12);
+}
+}
+
 export async function initTTS(onProgress) {
   onProgress?.({ status: 'done', progress: 100 });
 }
