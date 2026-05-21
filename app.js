@@ -816,6 +816,13 @@ function flash(id, msg) {
   setTimeout(() => { el.placeholder = prev; el.classList.remove('err'); }, 2000);
 }
 
+function flashBtn(id, msg) {
+  const el = $(id);
+  const prev = el.textContent;
+  el.textContent = msg;
+  setTimeout(() => { el.textContent = prev; }, 2500);
+}
+
 // ── Session management ────────────────────────────────────────────────────
 function startNewSession() {
   currentSession = {
@@ -996,9 +1003,9 @@ function importSettings() {
       if (data.memoryUrl)     { cfg.memoryUrl = data.memoryUrl; $('memory-url').value = data.memoryUrl; }
       setTTSApiKey(cfg.openRouterKey);
       save();
-      flash('api-key', 'KEYS LOADED — TAP INITIALIZE');
+      flashBtn('import-btn', 'KEYS LOADED ✓');
     } catch {
-      flash('api-key', 'IMPORT FAILED — BAD FILE');
+      flashBtn('import-btn', 'FAILED — BAD FILE');
     }
   };
   input.click();
