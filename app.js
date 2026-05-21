@@ -673,7 +673,7 @@ function attachSpeakButton(bubble, text) {
       btn.classList.remove('speaking');
       active = false;
     } else {
-      unlockTTS(); // resume AudioContext within the gesture before any awaits
+      await unlockTTS(); // resume AudioContext within the gesture before any awaits
       const t = text ?? bubble.dataset.text ?? bubble.textContent;
       btn.textContent = '◼';
       btn.classList.add('speaking');
