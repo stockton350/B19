@@ -665,7 +665,7 @@ function attachSpeakButton(bubble, text) {
   btn.setAttribute('aria-label', 'Read aloud');
   btn.textContent = '▶';
   let active = false;
-  btn.addEventListener('click', e => {
+  btn.addEventListener('click', async e => {
     e.stopPropagation();
     if (active) {
       stopSpeaking();
@@ -673,15 +673,23 @@ function attachSpeakButton(bubble, text) {
       btn.classList.remove('speaking');
       active = false;
     } else {
+      unlockTTS(); // resume AudioContext within the gesture before any awaits
       const t = text ?? bubble.dataset.text ?? bubble.textContent;
       btn.textContent = '◼';
       btn.classList.add('speaking');
       active = true;
-      speak(t, cfg.voice, () => {}, () => {
+      try {
+        await speak(t, cfg.voice, () => {}, () => {
+          btn.textContent = '▶';
+          btn.classList.remove('speaking');
+          active = false;
+        });
+      } catch (err) {
+        console.error('[TTS]', err);
         btn.textContent = '▶';
         btn.classList.remove('speaking');
         active = false;
-      });
+      }
     }
   });
   bubble.appendChild(btn);
