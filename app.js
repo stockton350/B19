@@ -192,6 +192,8 @@ function setupListeners() {
 
   $('settings-voice')?.addEventListener('change', e => { cfg.voice = e.target.value; save(); });
   $('debug-btn')?.addEventListener('click', toggleDebug);
+  $('export-btn')?.addEventListener('click', exportSettings);
+  $('import-btn')?.addEventListener('click', importSettings);
 
   // Text input
   const input = $('text-input');
@@ -952,6 +954,39 @@ function renderSessionList() {
   });
 }
 
+
+// ── Backup ────────────────────────────────────────────────────────────────
+
+async function exportSettings() {
+  const data = { apiKey: cfg.apiKey, openRouterKey: cfg.openRouterKey };
+  if (cfg.memoryUrl) data.memoryUrl = cfg.memoryUrl;
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const file = new File([blob], 'b19-settings.json', { type: 'application/json' });
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: 'B19 Settings' });
+  } else {
+    const url = URL.createObjectURL(blob);
+    Object.assign(document.createElement('a'), { href: url, download: 'b19-settings.json' }).click();
+    URL.revokeObjectURL(url);
+  }
+}
+
+function importSettings() {
+  const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.json,application/json' });
+  input.onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (data.apiKey)        { cfg.apiKey = data.apiKey; $('api-key').value = data.apiKey; }
+      if (data.openRouterKey) { cfg.openRouterKey = data.openRouterKey; $('openrouter-key').value = data.openRouterKey; }
+      if (data.memoryUrl)     { cfg.memoryUrl = data.memoryUrl; $('memory-url').value = data.memoryUrl; }
+      setTTSApiKey(cfg.openRouterKey);
+      save();
+    } catch {}
+  };
+  input.click();
+}
 
 // ── Memory ────────────────────────────────────────────────────────────────
 
