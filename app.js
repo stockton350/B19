@@ -410,6 +410,7 @@ async function onSend() {
     bubble.classList.remove('streaming');
     messages.push({ role: 'assistant', content: reply });
     attachCopyButton(bubble, reply);
+    attachSpeakButton(bubble, reply);
     if (messages.length % 10 === 0) autoSave();
   } catch (err) {
     bubble.classList.remove('streaming');
@@ -630,7 +631,10 @@ function addBubble(role, text) {
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
   bubble.textContent = text;
-  if (role === 'assistant' && text) attachCopyButton(bubble, text);
+  if (role === 'assistant' && text) {
+    attachCopyButton(bubble, text);
+    if (mode === 'text') attachSpeakButton(bubble, text);
+  }
   row.appendChild(bubble);
   $('chat-history').appendChild(row);
   scrollToBottom();
@@ -651,6 +655,35 @@ function attachCopyButton(bubble, text) {
     });
   });
   bubble.dataset.text = text ?? bubble.textContent;
+  bubble.appendChild(btn);
+}
+
+function attachSpeakButton(bubble, text) {
+  if (bubble.querySelector('.speak-btn')) return;
+  const btn = document.createElement('button');
+  btn.className = 'speak-btn';
+  btn.setAttribute('aria-label', 'Read aloud');
+  btn.textContent = '▶';
+  let active = false;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (active) {
+      stopSpeaking();
+      btn.textContent = '▶';
+      btn.classList.remove('speaking');
+      active = false;
+    } else {
+      const t = text ?? bubble.dataset.text ?? bubble.textContent;
+      btn.textContent = '◼';
+      btn.classList.add('speaking');
+      active = true;
+      speak(t, cfg.voice, () => {}, () => {
+        btn.textContent = '▶';
+        btn.classList.remove('speaking');
+        active = false;
+      });
+    }
+  });
   bubble.appendChild(btn);
 }
 

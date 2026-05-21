@@ -187,10 +187,9 @@
       position: relative;
       padding-bottom: 26px;
     }
-    .copy-btn {
+    .copy-btn, .speak-btn {
       position: absolute;
       bottom: 6px;
-      right: 8px;
       background: none;
       border: none;
       color: var(--fg-hint);
@@ -200,7 +199,10 @@
       padding: 2px 4px;
       line-height: 1;
     }
-    .copy-btn:active { color: var(--fg); }
+    .copy-btn  { right: 8px; }
+    .speak-btn { right: 32px; }
+    .copy-btn:active, .speak-btn:active { color: var(--fg); }
+    .speak-btn.speaking { color: var(--fg); }
     .bubble.streaming::after {
       content: '▌';
       animation: blink 0.7s step-end infinite;
