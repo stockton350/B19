@@ -92,6 +92,10 @@ function splitSentences(text) {
 export async function fetchTTSBlob(text, voiceId) {
   if (!_apiKey) throw new Error('No OpenRouter API key');
 
+  // Kokoro stops at colons — replace ": " with ", " so it reads through.
+  // Only target colon-space so timestamps like 3:30 are left alone.
+  const input = text.replace(/: /g, ', ').replace(/:$/gm, '');
+
   const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: {
@@ -102,7 +106,7 @@ export async function fetchTTSBlob(text, voiceId) {
     },
     body: JSON.stringify({
       model: MODEL,
-      input: text,
+      input,
       voice: VOICE_IDS.has(voiceId) ? voiceId : 'af_heart',
       response_format: 'mp3',
     }),
