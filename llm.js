@@ -17,7 +17,7 @@ const LENGTH_INSTRUCTIONS = {
   VERBOSE: 'Respond fully and thoroughly with as much detail as is useful.',
 };
 
-export const RESPONSE_LENGTHS = { BRIEF: 80, CONCISE: 120, VERBOSE: 250 };
+export const RESPONSE_LENGTHS = { BRIEF: 80, CONCISE: 120, VERBOSE: 1000 };
 
 export async function generateSummary(messages, apiKey) {
   const text = messages.map(m => `${m.role}: ${m.content}`).join('\n');
