@@ -35,33 +35,33 @@ function _getCtx() {
   return _ctx;
 }
 
-// Call once from a user gesture. Resumes the AudioContext and warms it up
-// with a silent buffer so iOS marks it as activated for async playback.
-export async function unlockTTS() {
+// Resume the AudioContext within a user gesture.
+// Pass withDing=true (from the speak button) to also play a short audible tone
+// that activates OS audio routing before the async TTS fetch begins.
+export async function unlockTTS(withDing = false) {
   const ctx = _getCtx();
-  if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
-  const silent = ctx.createBuffer(1, 1, ctx.sampleRate);
-  const src    = ctx.createBufferSource();
-  src.buffer   = silent;
-  src.connect(ctx.destination);
-  src.start(0);
-}
-
-// Play a short audible ding to activate OS audio routing within a user gesture.
-export function playDing() {
-  const ctx = _getCtx();
-  if (ctx.state !== 'running') return;
-  const osc  = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.type = 'sine';
-  osc.frequency.value = 960;
-  gain.gain.setValueAtTime(0.07, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-  osc.start(ctx.currentTime);
-  osc.stop(ctx.currentTime + 0.12);
-}
+  await ctx.resume().catch(() => {});
+  try {
+    if (withDing) {
+      const t    = ctx.currentTime;
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = 960;
+      gain.gain.setValueAtTime(0.07, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc.start(t);
+      osc.stop(t + 0.15);
+    } else {
+      const buf = ctx.createBuffer(1, 1, ctx.sampleRate);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+    }
+  } catch {}
 }
 
 export async function initTTS(onProgress) {

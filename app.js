@@ -1,5 +1,5 @@
 import { sendMessage, generateSummary, RESPONSE_LENGTHS } from './llm.js';
-import { initTTS, speak, stopSpeaking, isTTSReady, setTTSApiKey, getVoices, unlockTTS, playDing, fetchTTSBlob, speakBlobs } from './tts.js';
+import { initTTS, speak, stopSpeaking, isTTSReady, setTTSApiKey, getVoices, unlockTTS, fetchTTSBlob, speakBlobs } from './tts.js';
 import { isSupported, startListening, stopListening } from './stt.js';
 import { setMemoryURL, isMemoryEnabled, getProfile, saveConversation } from './memory.js';
 
@@ -673,8 +673,7 @@ function attachSpeakButton(bubble, text) {
       btn.classList.remove('speaking');
       active = false;
     } else {
-      await unlockTTS(); // resume AudioContext within the gesture before any awaits
-      playDing();        // audible tone activates OS audio routing before async fetch
+      await unlockTTS(true); // resume AudioContext + play ding within the gesture
       const t = text ?? bubble.dataset.text ?? bubble.textContent;
       btn.textContent = '◼';
       btn.classList.add('speaking');
