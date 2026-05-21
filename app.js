@@ -857,6 +857,13 @@ function flash(id, msg) {
   setTimeout(() => { el.placeholder = prev; el.classList.remove('err'); }, 2000);
 }
 
+function flashBtn(id, msg) {
+  const el = $(id);
+  const prev = el.textContent;
+  el.textContent = msg;
+  setTimeout(() => { el.textContent = prev; }, 2500);
+}
+
 // ── Session management ────────────────────────────────────────────────────
 function startNewSession() {
   currentSession = {
@@ -1013,18 +1020,34 @@ async function exportSettings() {
 }
 
 function importSettings() {
-  const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.json,application/json' });
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.style.display = 'none';
+  document.body.appendChild(input);
   input.onchange = async e => {
+    document.body.removeChild(input);
     const file = e.target.files[0];
     if (!file) return;
     try {
-      const data = JSON.parse(await file.text());
+      const text = file.text
+        ? await file.text()
+        : await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = ev => res(ev.target.result);
+            r.onerror = rej;
+            r.readAsText(file);
+          });
+      const data = JSON.parse(text);
       if (data.apiKey)        { cfg.apiKey = data.apiKey; $('api-key').value = data.apiKey; }
       if (data.openRouterKey) { cfg.openRouterKey = data.openRouterKey; $('openrouter-key').value = data.openRouterKey; }
       if (data.memoryUrl)     { cfg.memoryUrl = data.memoryUrl; $('memory-url').value = data.memoryUrl; }
       setTTSApiKey(cfg.openRouterKey);
       save();
-    } catch {}
+      flashBtn('import-btn', 'KEYS LOADED ✓');
+    } catch {
+      flashBtn('import-btn', 'FAILED — BAD FILE');
+    }
   };
   input.click();
 }
