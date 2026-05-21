@@ -981,29 +981,25 @@ async function exportSettings() {
 function importSettings() {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.json';
   input.style.display = 'none';
   document.body.appendChild(input);
-  input.onchange = async e => {
+  input.onchange = async () => {
+    const file = input.files[0];
     document.body.removeChild(input);
-    const file = e.target.files[0];
     if (!file) return;
     try {
-      const text = file.text
-        ? await file.text()
-        : await new Promise((res, rej) => {
-            const r = new FileReader();
-            r.onload = ev => res(ev.target.result);
-            r.onerror = rej;
-            r.readAsText(file);
-          });
+      const text = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = ev => res(ev.target.result);
+        r.onerror = rej;
+        r.readAsText(file);
+      });
       const data = JSON.parse(text);
-      if (data.apiKey)        { cfg.apiKey = data.apiKey; $('api-key').value = data.apiKey; }
-      if (data.openRouterKey) { cfg.openRouterKey = data.openRouterKey; $('openrouter-key').value = data.openRouterKey; }
-      if (data.memoryUrl)     { cfg.memoryUrl = data.memoryUrl; $('memory-url').value = data.memoryUrl; }
-      setTTSApiKey(cfg.openRouterKey);
+      if (data.apiKey)        cfg.apiKey        = data.apiKey;
+      if (data.openRouterKey) cfg.openRouterKey  = data.openRouterKey;
+      if (data.memoryUrl)     cfg.memoryUrl      = data.memoryUrl;
       save();
-      flashBtn('import-btn', 'KEYS LOADED ✓');
+      location.reload();
     } catch {
       flashBtn('import-btn', 'FAILED — BAD FILE');
     }
