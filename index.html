@@ -107,6 +107,7 @@
       align-items: center;
       padding: 13px 16px;
       gap: 12px;
+      border: none;
       border-bottom: 1px solid var(--border);
       min-height: 50px;
       background: none;
@@ -116,8 +117,9 @@
       font-family: var(--font);
     }
     .s-row:last-child { border-bottom: none; }
-    button.s-row { cursor: pointer; }
+    button.s-row { cursor: pointer; outline: none; }
     button.s-row:active { background: var(--surface-2); }
+    .s-card-no-divider .s-row { border: none; }
 
     .app-info-card {
       display: flex;
