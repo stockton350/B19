@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TTS Studio</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d0f14;
+      --surface:  #161922;
+      --border:   #2a2f3d;
+      --accent:   #4f8ef7;
+      --accent2:  #7c3aed;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --success:  #22c55e;
+      --danger:   #ef4444;
+      --radius:   10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 15px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 64px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    input[type="text"],
+    input[type="password"],
+    select,
+    textarea {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 10px 12px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 140px;
+      line-height: 1.6;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .speed-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .speed-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    input[type="range"]:hover::-webkit-slider-thumb { background: #6fa3ff; }
+
+    .speed-value {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-align: center;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      flex: 1;
+      min-width: 130px;
+      padding: 11px 18px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .btn-preview {
+      background: var(--accent2);
+      color: #fff;
+    }
+
+    .btn-generate {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-stop {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .status {
+      font-size: 0.82rem;
+      min-height: 20px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .status.ok    { color: var(--success); }
+    .status.error { color: var(--danger); }
+    .status.info  { color: var(--accent); }
+
+    .preview-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      font-style: italic;
+      min-height: 36px;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+    }
+
+    a.download-link {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 18px;
+      background: var(--success);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      transition: opacity 0.15s;
+    }
+
+    a.download-link.visible { display: flex; }
+    a.download-link:hover { opacity: 0.85; }
+
+    .key-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .key-row > label { flex: 1; }
+
+    .btn-save-key {
+      background: var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      min-width: unset;
+      flex: 0 0 auto;
+    }
+
+    .btn-save-key:hover { background: #333a4d; }
+
+    .char-count {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <h1>TTS STUDIO</h1>
+
+  <div class="card">
+
+    <!-- API Key -->
+    <div class="key-row">
+      <label>
+        OpenRouter API Key
+        <input type="password" id="api-key" placeholder="sk-or-v1-…" autocomplete="off">
+      </label>
+      <button class="btn-save-key" id="save-key-btn">Save</button>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Text input -->
+    <label>
+      Text
+      <textarea id="text-input" placeholder="Type or paste your text here…"></textarea>
+      <span class="char-count" id="char-count">0 characters</span>
+    </label>
+
+    <!-- Preview snippet -->
+    <label>
+      Preview (first 100 characters)
+      <div class="preview-box" id="preview-snippet">—</div>
+    </label>
+
+    <!-- Voice + Speed -->
+    <div class="row">
+      <label>
+        Voice
+        <select id="voice-select">
+          <option value="af_heart">HEART (US female)</option>
+          <option value="af_bella">BELLA (US female)</option>
+          <option value="af_nicole">NICOLE (US female)</option>
+          <option value="af_sarah">SARAH (US female)</option>
+          <option value="am_adam">ADAM (US male)</option>
+          <option value="am_michael">MICHAEL (US male)</option>
+          <option value="bf_emma">EMMA (UK female)</option>
+          <option value="bf_isabella">ISABELLA (UK female)</option>
+          <option value="bm_george">GEORGE (UK male)</option>
+          <option value="bm_lewis">LEWIS (UK male)</option>
+        </select>
+      </label>
+
+      <div class="speed-row">
+        <label style="text-transform:uppercase;font-size:0.8rem;font-weight:600;letter-spacing:0.06em;color:var(--muted);">Speed</label>
+        <input type="range" id="speed-slider" min="0.5" max="2.0" step="0.05" value="1.0">
+        <div class="speed-labels"><span>0.5×</span><span>2.0×</span></div>
+        <div class="speed-value" id="speed-display">1.00×</div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Buttons -->
+    <div class="btn-row">
+      <button class="btn-preview" id="preview-btn">▶ Preview</button>
+      <button class="btn-generate" id="generate-btn">⬇ Generate MP3</button>
+      <button class="btn-stop" id="stop-btn" style="display:none">■ Stop</button>
+    </div>
+
+    <!-- Download link -->
+    <a class="download-link" id="download-link" href="#" download="tts-output.mp3">⬇ Download MP3</a>
+
+    <!-- Status -->
+    <div class="status" id="status"></div>
+
+  </div>
+
+  <script>
+    const ENDPOINT = 'https://openrouter.ai/api/v1/audio/speech';
+    const MODEL    = 'hexgrad/kokoro-82m';
+    const LS_KEY   = 'b19_openrouter_key';
+    const LS_VOICE = 'b19_voice';
+
+    const apiKeyEl     = document.getElementById('api-key');
+    const saveKeyBtn   = document.getElementById('save-key-btn');
+    const textInput    = document.getElementById('text-input');
+    const charCount    = document.getElementById('char-count');
+    const previewSnip  = document.getElementById('preview-snippet');
+    const voiceSelect  = document.getElementById('voice-select');
+    const speedSlider  = document.getElementById('speed-slider');
+    const speedDisplay = document.getElementById('speed-display');
+    const previewBtn   = document.getElementById('preview-btn');
+    const generateBtn  = document.getElementById('generate-btn');
+    const stopBtn      = document.getElementById('stop-btn');
+    const downloadLink = document.getElementById('download-link');
+    const statusEl     = document.getElementById('status');
+
+    // ── Persistence ──────────────────────────────────────────────────────────
+    const savedKey   = localStorage.getItem(LS_KEY);
+    const savedVoice = localStorage.getItem(LS_VOICE);
+    if (savedKey)   apiKeyEl.value = savedKey;
+    if (savedVoice) voiceSelect.value = savedVoice;
+
+    saveKeyBtn.addEventListener('click', () => {
+      const k = apiKeyEl.value.trim();
+      if (!k) { setStatus('Enter a key first.', 'error'); return; }
+      localStorage.setItem(LS_KEY, k);
+      setStatus('API key saved.', 'ok');
+    });
+
+    voiceSelect.addEventListener('change', () => {
+      localStorage.setItem(LS_VOICE, voiceSelect.value);
+    });
+
+    // ── Text / preview snippet ───────────────────────────────────────────────
+    textInput.addEventListener('input', () => {
+      const text = textInput.value;
+      charCount.textContent = `${text.length} character${text.length !== 1 ? 's' : ''}`;
+      const snip = text.slice(0, 100).trim();
+      previewSnip.textContent = snip || '—';
+      downloadLink.classList.remove('visible');
+      if (downloadLink.href !== '#') URL.revokeObjectURL(downloadLink.href);
+      downloadLink.href = '#';
+    });
+
+    // ── Speed slider ─────────────────────────────────────────────────────────
+    speedSlider.addEventListener('input', () => {
+      speedDisplay.textContent = `${parseFloat(speedSlider.value).toFixed(2)}×`;
+    });
+
+    // ── Audio context ─────────────────────────────────────────────────────────
+    let _ctx = null;
+    let _sources = [];
+    let _stopped = false;
+
+    function getCtx() {
+      if (!_ctx || _ctx.state === 'closed') _ctx = new AudioContext();
+      return _ctx;
+    }
+
+    function stopAudio() {
+      _stopped = true;
+      for (const src of _sources) {
+        try { src.stop(0); src.disconnect(); } catch {}
+      }
+      _sources = [];
+    }
+
+    // ── API fetch ─────────────────────────────────────────────────────────────
+    async function fetchBlob(text) {
+      const key = apiKeyEl.value.trim();
+      if (!key) throw new Error('Enter your OpenRouter API key first.');
+
+      const input = text.replace(/: /g, ', ').replace(/:$/gm, '');
+      const speed = parseFloat(speedSlider.value);
+
+      const res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`,
+          'HTTP-Referer': 'https://stockton350.github.io/B19',
+          'X-Title': 'TTS STUDIO',
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          input,
+          voice: voiceSelect.value,
+          response_format: 'mp3',
+          speed,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message ?? `HTTP ${res.status}`);
+      }
+
+      return res.blob();
+    }
+
+    // ── Play blob ─────────────────────────────────────────────────────────────
+    async function playBlob(blob) {
+      const ctx = getCtx();
+      if (ctx.state === 'suspended') await ctx.resume();
+      const ab  = await blob.arrayBuffer();
+      const buf = await new Promise((res, rej) => ctx.decodeAudioData(ab, res, rej));
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      _sources.push(src);
+      src.start(0);
+      return new Promise(resolve => { src.onended = resolve; });
+    }
+
+    // ── UI helpers ────────────────────────────────────────────────────────────
+    function setStatus(msg, type = '') {
+      statusEl.textContent = msg;
+      statusEl.className   = `status ${type}`;
+    }
+
+    function setBusy(busy) {
+      previewBtn.disabled  = busy;
+      generateBtn.disabled = busy;
+      stopBtn.style.display = busy ? '' : 'none';
+    }
+
+    // ── Preview ───────────────────────────────────────────────────────────────
+    previewBtn.addEventListener('click', async () => {
+      const text = textInput.value.slice(0, 100).trim();
+      if (!text) { setStatus('Enter some text first.', 'error'); return; }
+
+      setBusy(true);
+      _stopped = false;
+      setStatus('Fetching preview…', 'info');
+
+      try {
+        const blob = await fetchBlob(text);
+        if (_stopped) return;
+        setStatus('Playing preview…', 'info');
+        await playBlob(blob);
+        if (!_stopped) setStatus('Preview complete.', 'ok');
+      } catch (e) {
+        setStatus(e.message, 'error');
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    // ── Generate full MP3 ─────────────────────────────────────────────────────
+    generateBtn.addEventListener('click', async () => {
+      const text = textInput.value.trim();
+      if (!text) { setStatus('Enter some text first.', 'error'); return; }
+
+      setBusy(true);
+      _stopped = false;
+      downloadLink.classList.remove('visible');
+      setStatus('Generating MP3…', 'info');
+
+      try {
+        const blob = await fetchBlob(text);
+        if (_stopped) return;
+
+        const url = URL.createObjectURL(blob);
+        downloadLink.href = url;
+        downloadLink.download = `tts-${Date.now()}.mp3`;
+        downloadLink.classList.add('visible');
+
+        setStatus('MP3 ready — click Download to save.', 'ok');
+      } catch (e) {
+        setStatus(e.message, 'error');
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    // ── Stop ──────────────────────────────────────────────────────────────────
+    stopBtn.addEventListener('click', () => {
+      stopAudio();
+      setBusy(false);
+      setStatus('Stopped.', '');
+    });
+  </script>
+</body>
+</html>
