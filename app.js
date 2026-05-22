@@ -17,6 +17,12 @@ const STORAGE = {
 const SESSIONS_KEY = 'b19_sessions';
 const BAR_COUNT = 28;
 
+const PERSONA_DESCS = {
+  SPARK: 'Spark is curious and energetic. Try Nova for a calmer cadence or Echo for terse, technical replies.',
+  NOVA:  'Nova is precise and direct, zero padding. One or two sentences unless more is genuinely needed.',
+  ECHO:  'Echo is dry and observational. Answers helpfully but never enthusiastically.',
+};
+
 // ── App State ─────────────────────────────────────────────────────────────
 let mode  = 'text'; // 'text' | 'ptt' | 'auto'
 let phase = 'idle'; // 'idle' | 'listening' | 'thinking' | 'speaking'
@@ -107,6 +113,9 @@ function restoreSettings() {
   document.querySelectorAll('.p-btn:not(.rl-btn)').forEach(b =>
     b.classList.toggle('on', b.dataset.p === cfg.persona));
 
+  const desc = $('persona-desc');
+  if (desc) desc.textContent = PERSONA_DESCS[cfg.persona] ?? '';
+
   document.querySelectorAll('.rl-btn').forEach(b =>
     b.classList.toggle('on', b.dataset.rl === cfg.responseLength));
 
@@ -128,6 +137,8 @@ function showScreen(name) {
 function showSettings() {
   showScreen('settings');
   populateVoices();
+  const backBtn = $('settings-back-btn');
+  if (backBtn) backBtn.style.display = cfg.apiKey ? 'flex' : 'none';
 }
 
 async function showLoading() {
@@ -152,7 +163,9 @@ async function showLoading() {
 
 function showMain() {
   showScreen('main');
-  $('hdr-persona').textContent = cfg.persona;
+  $('hdr-persona').textContent = cfg.persona + ' · DeepSeek';
+  $('hdr-chat-title').textContent = 'New chat';
+  updateSidebarFooter();
 
   // Apply saved mode
   setMode(mode, false);
@@ -176,6 +189,9 @@ function setupListeners() {
 
   $('init-btn').addEventListener('click', onInit);
   $('gear-btn').addEventListener('click', showSettings);
+  $('settings-back-btn')?.addEventListener('click', () => showScreen('main'));
+  $('sidebar-close-btn')?.addEventListener('click', closeSidebar);
+  $('sidebar-gear-btn')?.addEventListener('click', () => { closeSidebar(); showSettings(); });
   $('checkin-btn')?.addEventListener('click', runCheckin);
   $('update-btn').addEventListener('click', checkForUpdate);
   $('menu-btn')?.addEventListener('click', openSidebar);
@@ -244,6 +260,9 @@ function setPersona(p) {
   cfg.persona = p;
   document.querySelectorAll('.p-btn:not(.rl-btn)').forEach(b =>
     b.classList.toggle('on', b.dataset.p === p));
+  const desc = $('persona-desc');
+  if (desc) desc.textContent = PERSONA_DESCS[p] ?? '';
+  updateSidebarFooter();
   save();
 }
 
@@ -263,6 +282,13 @@ function save() {
   localStorage.setItem(STORAGE.OPENROUTER_KEY,  cfg.openRouterKey);
   localStorage.setItem(STORAGE.MEMORY_URL,      cfg.memoryUrl);
   localStorage.setItem(STORAGE.DEBUG,           cfg.debug);
+}
+
+function updateSidebarFooter() {
+  const avatar = $('sidebar-avatar');
+  const name   = $('sidebar-persona-name');
+  if (avatar) avatar.textContent = cfg.persona[0];
+  if (name)   name.textContent   = cfg.persona[0] + cfg.persona.slice(1).toLowerCase();
 }
 
 // ── Debug console (Eruda) ─────────────────────────────────────────────────
@@ -705,7 +731,23 @@ function renderAllMessages() {
     const empty = document.createElement('div');
     empty.className = 'chat-empty';
     empty.id = 'chat-empty';
-    empty.textContent = '// SAY SOMETHING';
+    empty.innerHTML = `
+      <div class="chat-empty-avatar">
+        <svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12,50 C10,32 20,12 42,8 C65,4 88,18 90,38 C92,54 76,66 54,68 C32,70 14,64 12,50Z" fill="#1d3c9e"/>
+          <path d="M20,56 C24,44 38,38 54,43 C66,47 70,58 62,66 C46,72 18,68 20,56Z" fill="white" opacity="0.9"/>
+          <path d="M20,58 C10,64 8,74 16,72 C22,71 22,63Z" fill="#162f88"/>
+          <path d="M10,46 C2,40 0,52 7,54 C12,55 12,50Z" fill="#1d3c9e"/>
+          <path d="M10,50 C2,56 0,66 8,63 C14,61 12,54Z" fill="#1d3c9e"/>
+          <circle cx="74" cy="28" r="3.5" fill="white"/>
+          <circle cx="75" cy="28" r="1.8" fill="#0d1f66"/>
+          <circle cx="88" cy="18" r="5" fill="#4dd4f0"/>
+          <circle cx="97" cy="11" r="3.5" fill="#4dd4f0"/>
+          <circle cx="100" cy="4" r="2" fill="#4dd4f0"/>
+        </svg>
+      </div>
+      <div class="chat-empty-title">Hi, I'm DeepSpeak.</div>
+      <div class="chat-empty-sub">How can I help you today?</div>`;
     history.appendChild(empty);
     return;
   }
@@ -952,14 +994,18 @@ function restoreSession(id) {
 function showSummaryHeader(title, isoDate) {
   const el = $('session-summary');
   if (!el) return;
-  $('summary-title').textContent = '// ' + (title ?? 'UNTITLED');
+  $('summary-title').textContent = title ?? 'Untitled';
   $('summary-date').textContent  = formatDate(isoDate);
   el.style.display = '';
+  const titleEl = $('hdr-chat-title');
+  if (titleEl) titleEl.textContent = title ?? 'Untitled';
 }
 
 function hideSummaryHeader() {
   const el = $('session-summary');
   if (el) el.style.display = 'none';
+  const titleEl = $('hdr-chat-title');
+  if (titleEl) titleEl.textContent = 'New chat';
 }
 
 function formatDate(iso) {
@@ -984,6 +1030,8 @@ function renderSessionList() {
   const list = $('session-list');
   const index = getSessionIndex();
   list.innerHTML = '';
+  const label = $('sidebar-count-label');
+  if (label) label.textContent = index.length ? `Sessions · ${index.length}` : 'Sessions';
 
   if (!index.length) {
     const empty = document.createElement('div');
