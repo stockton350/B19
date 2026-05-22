@@ -890,9 +890,16 @@ function flash(id, msg) {
 
 function flashBtn(id, msg) {
   const el = $(id);
-  const prev = el.textContent;
-  el.textContent = msg;
-  setTimeout(() => { el.textContent = prev; }, 2500);
+  const label = el.querySelector('.s-row-label');
+  if (label) {
+    const prev = label.textContent;
+    label.textContent = msg;
+    setTimeout(() => { label.textContent = prev; }, 2500);
+  } else {
+    const prev = el.textContent;
+    el.textContent = msg;
+    setTimeout(() => { el.textContent = prev; }, 2500);
+  }
 }
 
 // ── Session management ────────────────────────────────────────────────────
@@ -1133,7 +1140,7 @@ document.addEventListener('visibilitychange', () => {
   } else {
     stopSpeaking();
     if (micAudioCtx?.state === 'suspended') micAudioCtx.resume().catch(() => {});
-    setMode('text');
+    if (mode !== 'text') setMode('text', false);
   }
 });
 
