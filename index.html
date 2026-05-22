@@ -99,6 +99,7 @@
       overflow: hidden;
     }
     .s-card-pad { padding: 14px 16px; }
+    .s-card-no-divider .s-row { border-bottom: none; }
 
     /* Row-style items */
     .s-row {
@@ -117,6 +118,35 @@
     .s-row:last-child { border-bottom: none; }
     button.s-row { cursor: pointer; }
     button.s-row:active { background: var(--surface-2); }
+
+    .app-info-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface);
+      border-radius: var(--r-md);
+      padding: 14px 16px;
+      margin-bottom: 28px;
+    }
+    .app-info-avatar {
+      width: 52px; height: 52px;
+      background: #e8edf5;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .app-info-avatar svg { width: 36px; height: 29px; }
+    .app-info-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.2px;
+    }
+    .app-info-version {
+      font-size: 12px;
+      color: var(--text-3);
+      margin-top: 2px;
+    }
 
     .s-row-icon {
       font-size: 15px;
@@ -686,21 +716,39 @@
 
     <div class="settings-body">
 
+      <div class="app-info-card">
+        <div class="app-info-avatar">
+          <svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12,50 C10,32 20,12 42,8 C65,4 88,18 90,38 C92,54 76,66 54,68 C32,70 14,64 12,50Z" fill="#1d3c9e"/>
+            <path d="M20,56 C24,44 38,38 54,43 C66,47 70,58 62,66 C46,72 18,68 20,56Z" fill="white" opacity="0.9"/>
+            <path d="M20,58 C10,64 8,74 16,72 C22,71 22,63Z" fill="#162f88"/>
+            <path d="M10,46 C2,40 0,52 7,54 C12,55 12,50Z" fill="#1d3c9e"/>
+            <path d="M10,50 C2,56 0,66 8,63 C14,61 12,54Z" fill="#1d3c9e"/>
+            <circle cx="74" cy="28" r="3.5" fill="white"/>
+            <circle cx="75" cy="28" r="1.8" fill="#0d1f66"/>
+            <circle cx="88" cy="18" r="5" fill="#4dd4f0"/>
+            <circle cx="97" cy="11" r="3.5" fill="#4dd4f0"/>
+            <circle cx="100" cy="4" r="2" fill="#4dd4f0"/>
+          </svg>
+        </div>
+        <div>
+          <div class="app-info-name">DeepSpeak</div>
+          <div class="app-info-version">v0.3.0 · BUILD 2026.5.22</div>
+        </div>
+      </div>
+
       <div class="s-section">
         <div class="s-section-label">API Keys</div>
         <div class="s-card">
           <div class="s-row">
-            <span class="s-row-icon">🔑</span>
             <span class="s-row-label">LLM</span>
             <input id="api-key" class="s-input" type="password" placeholder="sk-••••••••••" autocomplete="off" spellcheck="false">
           </div>
           <div class="s-row">
-            <span class="s-row-icon">🔊</span>
             <span class="s-row-label">TTS</span>
             <input id="openrouter-key" class="s-input" type="password" placeholder="sk-or-••••••••••" autocomplete="off" spellcheck="false">
           </div>
           <div class="s-row">
-            <span class="s-row-icon">🔗</span>
             <span class="s-row-label">Google Sheet URL</span>
             <input id="memory-url" class="s-input" type="text" placeholder="optional" autocomplete="off" spellcheck="false">
           </div>
@@ -723,7 +771,6 @@
         <div class="s-section-label">Voice</div>
         <div class="s-card">
           <div class="s-row">
-            <span class="s-row-icon">🎙</span>
             <span class="s-row-label">Voice</span>
             <select id="settings-voice" class="s-input"></select>
           </div>
@@ -743,26 +790,22 @@
 
       <div class="s-section">
         <div class="s-section-label">Data</div>
-        <div class="s-card">
+        <div class="s-card s-card-no-divider">
           <button id="import-btn" class="s-row">
-            <span class="s-row-icon">🛡</span>
             <span class="s-row-label">Import keys</span>
             <span class="s-chevron">›</span>
           </button>
           <button id="export-btn" class="s-row">
-            <span class="s-row-icon">📤</span>
             <span class="s-row-label">Export keys</span>
             <span class="s-chevron">›</span>
           </button>
           <button id="debug-btn" class="s-row">
-            <span class="s-row-icon">🐛</span>
             <span class="s-row-label">Debug console</span>
-            <span class="s-chevron">›</span>
           </button>
         </div>
       </div>
 
-      <button id="init-btn" class="action-btn">Continue</button>
+      <button id="init-btn" class="action-btn">Start</button>
       <button id="checkin-btn" class="outline-btn">Memory check-in</button>
       <button id="update-btn" class="outline-btn">Check for update</button>
       <div id="update-hint"></div>
@@ -806,7 +849,7 @@
         <div class="chat-hdr-title" id="hdr-chat-title">New chat</div>
         <div class="chat-hdr-sub" id="hdr-persona">DeepSeek</div>
       </div>
-      <button class="icon-btn" id="gear-btn" aria-label="Settings">⚙</button>
+      <button class="icon-btn" id="gear-btn" aria-label="Settings"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="2" y1="5" x2="16" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="9" x2="16" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="13" x2="16" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="5" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="9" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="13" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1.5"/></svg></button>
     </div>
 
     <div id="session-summary" class="session-summary" style="display:none">
@@ -841,9 +884,9 @@
 
       <div class="mode-pills-wrap">
         <div class="mode-pills">
-          <button class="mode-pill on" data-mode="text">✉ Text</button>
-          <button class="mode-pill"    data-mode="ptt">🎤 PTT</button>
-          <button class="mode-pill"    data-mode="auto">⚡ Auto</button>
+          <button class="mode-pill on" data-mode="text">Text</button>
+          <button class="mode-pill"    data-mode="ptt">PTT</button>
+          <button class="mode-pill"    data-mode="auto">Auto</button>
         </div>
       </div>
 
@@ -867,7 +910,7 @@
 
     <div class="sidebar-hdr">
       <span class="sidebar-hdr-label" id="sidebar-count-label">Sessions</span>
-      <button class="sidebar-hdr-btn" id="sidebar-gear-btn" aria-label="Settings">⚙</button>
+      <button class="sidebar-hdr-btn" id="sidebar-gear-btn" aria-label="Settings"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="2" y1="5" x2="16" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="9" x2="16" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="13" x2="16" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="5" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="9" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="13" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1.5"/></svg></button>
       <button class="sidebar-hdr-btn" id="sidebar-close-btn" aria-label="Close">✕</button>
     </div>
 
