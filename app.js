@@ -733,18 +733,7 @@ function renderAllMessages() {
     empty.id = 'chat-empty';
     empty.innerHTML = `
       <div class="chat-empty-avatar">
-        <svg viewBox="0 0 108 100" xmlns="http://www.w3.org/2000/svg">
-          <path d="M22,74 C17,60 14,44 20,30 C26,16 42,6 60,4 C78,2 92,14 95,30 C98,44 92,58 80,66 C68,74 50,78 34,78 C28,78 24,76 22,74Z" fill="#1e3a8a"/>
-          <path d="M38,74 C42,62 56,56 70,58 C80,60 86,68 82,76 C74,84 36,84 38,74Z" fill="white"/>
-          <path d="M30,74 C20,80 15,92 24,91 C30,90 34,80 32,74Z" fill="#162878"/>
-          <path d="M20,72 C10,66 6,76 12,78 C17,80 20,75 20,72Z" fill="#1e3a8a"/>
-          <path d="M20,76 C12,82 10,93 17,91 C23,89 22,80 20,76Z" fill="#1e3a8a"/>
-          <circle cx="82" cy="30" r="3" fill="white"/>
-          <circle cx="83" cy="30" r="1.5" fill="#0a1852"/>
-          <circle cx="95" cy="44" r="4.5" fill="#29b6f6"/>
-          <circle cx="100" cy="35" r="3" fill="#29b6f6"/>
-          <circle cx="103" cy="27" r="1.8" fill="#29b6f6"/>
-        </svg>
+        <img src="whale1_192x192.png" style="width:100%;height:100%;object-fit:contain">
       </div>
       <div class="chat-empty-title">Hi, I'm DeepSpeak.</div>
       <div class="chat-empty-sub">How can I help you today?</div>`;
