@@ -51,6 +51,17 @@ export async function initTTS(onProgress) {
   onProgress?.({ status: 'done', progress: 100 });
 }
 
+// Re-prime the TLS connection + API auth after returning from background.
+// Call from visibilitychange (no user gesture required for network requests).
+export async function warmUpTTS(voiceId) {
+  if (!_apiKey) return;
+  try {
+    await fetchTTSBlob('.', voiceId || 'af_heart');
+  } catch {
+    // silent — real requests will surface errors
+  }
+}
+
 // Split on sentence-ending punctuation followed by whitespace or end of string.
 function splitSentences(text) {
   const parts = [];

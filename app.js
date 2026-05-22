@@ -1,5 +1,5 @@
 import { sendMessage, generateSummary, RESPONSE_LENGTHS } from './llm.js';
-import { initTTS, speak, stopSpeaking, isTTSReady, setTTSApiKey, getVoices, unlockTTS, fetchTTSBlob, speakBlobs } from './tts.js';
+import { initTTS, speak, stopSpeaking, isTTSReady, setTTSApiKey, getVoices, unlockTTS, fetchTTSBlob, speakBlobs, warmUpTTS } from './tts.js';
 import { isSupported, startListening, stopListening } from './stt.js';
 import { setMemoryURL, isMemoryEnabled, getProfile, saveConversation } from './memory.js';
 
@@ -1056,6 +1056,7 @@ document.addEventListener('visibilitychange', () => {
     stopSpeaking();
     if (micAudioCtx?.state === 'suspended') micAudioCtx.resume().catch(() => {});
     setMode('text');
+    warmUpTTS(cfg.voice);
   }
 });
 
