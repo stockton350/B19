@@ -733,17 +733,17 @@ function renderAllMessages() {
     empty.id = 'chat-empty';
     empty.innerHTML = `
       <div class="chat-empty-avatar">
-        <svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12,50 C10,32 20,12 42,8 C65,4 88,18 90,38 C92,54 76,66 54,68 C32,70 14,64 12,50Z" fill="#1d3c9e"/>
-          <path d="M20,56 C24,44 38,38 54,43 C66,47 70,58 62,66 C46,72 18,68 20,56Z" fill="white" opacity="0.9"/>
-          <path d="M20,58 C10,64 8,74 16,72 C22,71 22,63Z" fill="#162f88"/>
-          <path d="M10,46 C2,40 0,52 7,54 C12,55 12,50Z" fill="#1d3c9e"/>
-          <path d="M10,50 C2,56 0,66 8,63 C14,61 12,54Z" fill="#1d3c9e"/>
-          <circle cx="74" cy="28" r="3.5" fill="white"/>
-          <circle cx="75" cy="28" r="1.8" fill="#0d1f66"/>
-          <circle cx="88" cy="18" r="5" fill="#4dd4f0"/>
-          <circle cx="97" cy="11" r="3.5" fill="#4dd4f0"/>
-          <circle cx="100" cy="4" r="2" fill="#4dd4f0"/>
+        <svg viewBox="0 0 108 100" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22,74 C17,60 14,44 20,30 C26,16 42,6 60,4 C78,2 92,14 95,30 C98,44 92,58 80,66 C68,74 50,78 34,78 C28,78 24,76 22,74Z" fill="#1e3a8a"/>
+          <path d="M38,74 C42,62 56,56 70,58 C80,60 86,68 82,76 C74,84 36,84 38,74Z" fill="white"/>
+          <path d="M30,74 C20,80 15,92 24,91 C30,90 34,80 32,74Z" fill="#162878"/>
+          <path d="M20,72 C10,66 6,76 12,78 C17,80 20,75 20,72Z" fill="#1e3a8a"/>
+          <path d="M20,76 C12,82 10,93 17,91 C23,89 22,80 20,76Z" fill="#1e3a8a"/>
+          <circle cx="82" cy="30" r="3" fill="white"/>
+          <circle cx="83" cy="30" r="1.5" fill="#0a1852"/>
+          <circle cx="95" cy="44" r="4.5" fill="#29b6f6"/>
+          <circle cx="100" cy="35" r="3" fill="#29b6f6"/>
+          <circle cx="103" cy="27" r="1.8" fill="#29b6f6"/>
         </svg>
       </div>
       <div class="chat-empty-title">Hi, I'm DeepSpeak.</div>

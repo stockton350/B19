@@ -1,11 +1,11 @@
 {
-  "name": "BREAKER ONE NINER",
-  "short_name": "B1-9",
-  "description": "Breaker one niner, do you copy?",
+  "name": "DeepSpeak",
+  "short_name": "DeepSpeak",
+  "description": "Your AI voice and chat companion",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#0b0d14",
+  "theme_color": "#0b0d14",
   "orientation": "portrait",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
