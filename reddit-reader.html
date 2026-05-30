@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0a">
+<title>Readit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400&family=Geist:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --bg2: #111111;
+    --bg3: #1a1a1a;
+    --border: #222222;
+    --border2: #2a2a2a;
+    --text: #e8e8e8;
+    --text2: #888888;
+    --text3: #555555;
+    --accent: #ff4500;
+    --accent2: #c43600;
+    --score: #ff6534;
+    --font-serif: 'Instrument Serif', Georgia, serif;
+    --font-sans: 'Geist', system-ui, sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --radius: 6px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 15px; -webkit-text-size-adjust: 100%; }
+
+  body {
+    background: var(--bg);
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  #header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,10,0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: calc(var(--safe-top) + 10px) 16px 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  #wordmark {
+    font-family: var(--font-serif);
+    font-size: 22px;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-style: italic;
+  }
+
+  #sub-input-wrap {
+    flex: 1;
+    position: relative;
+  }
+
+  #sub-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 300;
+    padding: 7px 14px 7px 28px;
+    outline: none;
+    transition: border-color 0.15s;
+    -webkit-appearance: none;
+  }
+  #sub-input:focus { border-color: var(--accent); }
+  #sub-input::placeholder { color: var(--text3); }
+
+  #sub-prefix {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text3);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    pointer-events: none;
+  }
+
+  #sort-btn {
+    background: none;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 300;
+    padding: 6px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  #sort-btn:active { background: var(--bg3); color: var(--text); }
+
+  /* ── Sort drawer ── */
+  #sort-drawer {
+    display: none;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  #sort-drawer.open { display: flex; }
+  .sort-opt {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    color: var(--text2);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .sort-opt.active, .sort-opt:active { background: var(--accent); border-color: var(--accent); color: white; }
+
+  /* ── Feed ── */
+  #feed {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 0 calc(var(--safe-bottom) + 80px);
+  }
+
+  /* ── Post card ── */
+  .post {
+    border-bottom: 1px solid var(--border);
+    padding: 16px;
+    cursor: pointer;
+    transition: background 0.1s;
+    animation: fadeUp 0.3s ease both;
+  }
+  .post:active { background: var(--bg2); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .post-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+
+  .post-dot { color: var(--text3); font-size: 10px; }
+
+  .post-author {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text3);
+    font-weight: 300;
+  }
+
+  .post-age {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text3);
+    font-weight: 300;
+    margin-left: auto;
+  }
+
+  .post-flair {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text3);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+
+  .post-title {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    line-height: 1.35;
+    color: var(--text);
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+
+  .post-title.visited { color: var(--text3); }
+
+  /* text preview */
+  .post-preview {
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text2);
+    margin-bottom: 10px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* thumbnail */
+  .post-thumb {
+    width: 100%;
+    max-height: 280px;
+    object-fit: cover;
+    border-radius: var(--radius);
+    margin-bottom: 10px;
+    background: var(--bg3);
+    display: block;
+  }
+
+  .post-stats {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .post-score {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--score);
+    letter-spacing: 0.02em;
+  }
+
+  .post-comments {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text3);
+    font-weight: 300;
+  }
+
+  .post-link-domain {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text3);
+    margin-left: auto;
+    font-weight: 300;
+  }
+
+  /* ── Comments view ── */
+  #comments-view {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 200;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(var(--safe-bottom) + 20px);
+  }
+
+  #comments-header {
+    position: sticky;
+    top: 0;
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: calc(var(--safe-top) + 10px) 16px 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  #back-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  #comments-sub {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #post-detail {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 20px 16px 0;
+  }
+
+  #post-detail-title {
+    font-family: var(--font-serif);
+    font-size: 22px;
+    line-height: 1.3;
+    color: var(--text);
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+  }
+
+  #post-detail-meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+
+  #post-detail-body {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text2);
+    margin-bottom: 20px;
+    border-left: 2px solid var(--border2);
+    padding-left: 14px;
+  }
+  #post-detail-body p { margin-bottom: 10px; }
+  #post-detail-body a { color: var(--accent); text-decoration: none; }
+
+  #post-detail-link {
+    display: block;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .comments-divider {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+
+  .comments-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  /* ── Comment ── */
+  .comment {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 10px 16px;
+    border-left: 2px solid transparent;
+    animation: fadeUp 0.2s ease both;
+  }
+
+  .comment.depth-0 { border-left-color: transparent; }
+  .comment.depth-1 { margin-left: 16px; border-left-color: var(--border2); }
+  .comment.depth-2 { margin-left: 32px; border-left-color: #2a2a2a; }
+  .comment.depth-3 { margin-left: 48px; border-left-color: #222; }
+  .comment.depth-4 { margin-left: 56px; border-left-color: #1e1e1e; }
+
+  .comment-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 5px;
+    flex-wrap: wrap;
+  }
+
+  .comment-author {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text2);
+    font-weight: 400;
+  }
+  .comment-author.op { color: var(--accent); }
+
+  .comment-score {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text3);
+    font-weight: 300;
+  }
+
+  .comment-age {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text3);
+    font-weight: 300;
+    margin-left: auto;
+  }
+
+  .comment-body {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text);
+    font-weight: 300;
+  }
+  .comment-body p { margin-bottom: 6px; }
+  .comment-body a { color: var(--accent); text-decoration: none; }
+  .comment-body code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--bg3);
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: var(--text2);
+  }
+  .comment-body blockquote {
+    border-left: 2px solid var(--border2);
+    padding-left: 10px;
+    color: var(--text3);
+    margin: 6px 0;
+  }
+
+  .collapse-btn {
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 4px 0;
+    margin-top: 4px;
+  }
+  .collapse-btn:active { color: var(--text); }
+
+  /* ── Load more ── */
+  #load-more {
+    display: block;
+    width: calc(100% - 32px);
+    max-width: calc(680px - 32px);
+    margin: 16px auto;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text2);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 300;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  #load-more:active { background: var(--bg3); color: var(--text); }
+  #load-more:disabled { opacity: 0.3; cursor: default; }
+
+  /* ── Loader ── */
+  .loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 16px;
+    gap: 6px;
+  }
+  .loader span {
+    width: 4px; height: 4px;
+    background: var(--text3);
+    border-radius: 50%;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  .loader span:nth-child(2) { animation-delay: 0.2s; }
+  .loader span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ── Error ── */
+  .error-msg {
+    text-align: center;
+    padding: 48px 16px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text3);
+  }
+  .error-msg strong { display: block; color: var(--text2); margin-bottom: 8px; font-size: 15px; }
+
+  /* ── Tab bar ── */
+  #tab-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 8px 0 calc(var(--safe-bottom) + 4px);
+    z-index: 100;
+  }
+
+  .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    padding: 6px 4px;
+    transition: color 0.15s;
+    text-transform: uppercase;
+  }
+  .tab.active { color: var(--accent); }
+  .tab svg { width: 20px; height: 20px; }
+
+  /* stagger post animations */
+  .post:nth-child(1)  { animation-delay: 0.03s; }
+  .post:nth-child(2)  { animation-delay: 0.06s; }
+  .post:nth-child(3)  { animation-delay: 0.09s; }
+  .post:nth-child(4)  { animation-delay: 0.12s; }
+  .post:nth-child(5)  { animation-delay: 0.15s; }
+  .post:nth-child(6)  { animation-delay: 0.18s; }
+  .post:nth-child(7)  { animation-delay: 0.21s; }
+  .post:nth-child(8)  { animation-delay: 0.24s; }
+
+  /* ── Saved subs sidebar ── */
+  #saved-sheet {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+  }
+  #saved-sheet.open { display: block; }
+  #saved-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+  }
+  #saved-panel {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: var(--bg2);
+    border-top: 1px solid var(--border2);
+    border-radius: 16px 16px 0 0;
+    padding: 16px 16px calc(var(--safe-bottom) + 20px);
+    max-height: 70vh;
+    overflow-y: auto;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  #saved-panel h3 {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .saved-sub {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .saved-sub:last-child { border-bottom: none; }
+  .saved-sub-name {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--text);
+  }
+  .saved-sub-name span { color: var(--accent); }
+  .remove-sub {
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+  }
+  #save-current-btn {
+    width: 100%;
+    margin-top: 14px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text2);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 10px;
+    cursor: pointer;
+  }
+  #save-current-btn:active { background: var(--accent); color: white; border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div id="header">
+  <div id="wordmark" onclick="goHome()">readit</div>
+  <div id="sub-input-wrap">
+    <span id="sub-prefix">r/</span>
+    <input id="sub-input" type="text" placeholder="subreddit" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+  </div>
+  <button id="sort-btn" onclick="toggleSort()">↕ <span id="sort-label">hot</span></button>
+</div>
+
+<!-- Sort drawer -->
+<div id="sort-drawer">
+  <div class="sort-opt active" data-sort="hot">hot</div>
+  <div class="sort-opt" data-sort="new">new</div>
+  <div class="sort-opt" data-sort="top">top</div>
+  <div class="sort-opt" data-sort="rising">rising</div>
+  <div class="sort-opt" data-sort="controversial">controversial</div>
+</div>
+
+<!-- Feed -->
+<div id="feed"></div>
+
+<!-- Load more -->
+<button id="load-more" onclick="loadMore()" style="display:none">load more</button>
+
+<!-- Tab bar -->
+<div id="tab-bar">
+  <button class="tab active" id="tab-feed" onclick="switchTab('feed')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Feed
+  </button>
+  <button class="tab" id="tab-popular" onclick="switchTab('popular')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+    Popular
+  </button>
+  <button class="tab" id="tab-saved" onclick="openSaved()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+    Saved
+  </button>
+</div>
+
+<!-- Comments view -->
+<div id="comments-view">
+  <div id="comments-header">
+    <button id="back-btn" onclick="closeComments()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      back
+    </button>
+    <span id="comments-sub"></span>
+  </div>
+  <div id="post-detail"></div>
+  <div class="comments-divider">
+    <div class="comments-label" id="comments-count-label">comments</div>
+    <div id="comments-list"></div>
+  </div>
+</div>
+
+<!-- Saved sheet -->
+<div id="saved-sheet">
+  <div id="saved-overlay" onclick="closeSaved()"></div>
+  <div id="saved-panel">
+    <h3>Saved Subreddits</h3>
+    <div id="saved-list"></div>
+    <button id="save-current-btn" onclick="saveCurrentSub()">+ save r/<span id="save-sub-name">all</span></button>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let currentSub = 'all';
+let currentSort = 'hot';
+let after = null;
+let loading = false;
+let visitedPosts = new Set(JSON.parse(localStorage.getItem('visited') || '[]'));
+let savedSubs = JSON.parse(localStorage.getItem('savedSubs') || '["all","popular","worldnews","technology","science"]');
+
+// ── Init ──
+const subInput = document.getElementById('sub-input');
+subInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.target.blur(); loadSub(e.target.value.trim() || 'all'); }
+});
+subInput.addEventListener('blur', () => {
+  const v = subInput.value.trim();
+  if (v && v !== currentSub) loadSub(v);
+});
+
+document.querySelectorAll('.sort-opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('.sort-opt').forEach(o => o.classList.remove('active'));
+    opt.classList.add('active');
+    currentSort = opt.dataset.sort;
+    document.getElementById('sort-label').textContent = currentSort;
+    document.getElementById('sort-drawer').classList.remove('open');
+    after = null;
+    loadFeed(true);
+  });
+});
+
+function toggleSort() {
+  document.getElementById('sort-drawer').classList.toggle('open');
+}
+
+function goHome() {
+  loadSub('all');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (tab === 'feed') {
+    document.getElementById('tab-feed').classList.add('active');
+    loadSub('all');
+  } else if (tab === 'popular') {
+    document.getElementById('tab-popular').classList.add('active');
+    loadSub('popular');
+  }
+}
+
+// ── Load subreddit ──
+function loadSub(sub) {
+  currentSub = sub.replace(/^r\//,'').trim() || 'all';
+  subInput.value = currentSub;
+  document.getElementById('save-sub-name').textContent = currentSub;
+  after = null;
+  loadFeed(true);
+}
+
+// ── Fetch feed ──
+async function loadFeed(reset = false) {
+  if (loading) return;
+  loading = true;
+  const feed = document.getElementById('feed');
+  const loadMoreBtn = document.getElementById('load-more');
+
+  if (reset) {
+    feed.innerHTML = `<div class="loader"><span></span><span></span><span></span></div>`;
+    loadMoreBtn.style.display = 'none';
+    after = null;
+  }
+
+  const sort = currentSort;
+  let url = `https://old.reddit.com/r/${currentSub}/${sort}.json?limit=25&raw_json=1`;
+  if (after) url += `&after=${after}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const posts = data.data.children;
+    after = data.data.after;
+
+    if (reset) feed.innerHTML = '';
+
+    if (posts.length === 0 && reset) {
+      feed.innerHTML = `<div class="error-msg"><strong>Nothing here</strong>r/${currentSub} returned no posts</div>`;
+      loading = false;
+      return;
+    }
+
+    posts.forEach((p, i) => {
+      const d = p.data;
+      if (d.stickied && reset && i < 2) return; // skip stickies
+      feed.appendChild(buildPost(d));
+    });
+
+    loadMoreBtn.style.display = after ? 'block' : 'none';
+  } catch(e) {
+    if (reset) feed.innerHTML = `<div class="error-msg"><strong>Couldn't load r/${currentSub}</strong>${e.message}</div>`;
+  }
+
+  loading = false;
+}
+
+function loadMore() {
+  loadFeed(false);
+}
+
+// ── Build post card ──
+function buildPost(d) {
+  const el = document.createElement('div');
+  el.className = 'post';
+
+  const visited = visitedPosts.has(d.id);
+  const age = timeAgo(d.created_utc);
+  const score = fmtNum(d.score);
+  const comments = fmtNum(d.num_comments);
+  const isText = d.is_self;
+
+  // thumbnail
+  let thumbHtml = '';
+  if (!isText && d.thumbnail && d.thumbnail.startsWith('http')) {
+    // use preview image if available for better quality
+    let imgSrc = d.thumbnail;
+    if (d.preview && d.preview.images && d.preview.images[0]) {
+      const imgs = d.preview.images[0].resolutions;
+      if (imgs && imgs.length > 0) {
+        imgSrc = imgs[Math.min(imgs.length - 1, 2)].url.replace(/&amp;/g, '&');
+      }
+    }
+    thumbHtml = `<img class="post-thumb" src="${imgSrc}" loading="lazy" onerror="this.style.display='none'">`;
+  }
+
+  // flair
+  const flairText = d.link_flair_text ? `<span class="post-flair">${escHtml(d.link_flair_text)}</span>` : '';
+
+  // domain
+  const domainHtml = !isText ? `<span class="post-link-domain">${escHtml(d.domain)}</span>` : '';
+
+  el.innerHTML = `
+    <div class="post-meta">
+      <span class="post-sub">r/${escHtml(d.subreddit)}</span>
+      <span class="post-dot">·</span>
+      <span class="post-author">u/${escHtml(d.author)}</span>
+      ${flairText}
+      <span class="post-age">${age}</span>
+    </div>
+    ${thumbHtml}
+    <div class="post-title${visited ? ' visited' : ''}">${escHtml(d.title)}</div>
+    ${isText && d.selftext ? `<div class="post-preview">${escHtml(d.selftext.substring(0,200))}</div>` : ''}
+    <div class="post-stats">
+      <span class="post-score">▲ ${score}</span>
+      <span class="post-comments">💬 ${comments}</span>
+      ${domainHtml}
+    </div>
+  `;
+
+  el.addEventListener('click', () => openPost(d));
+  return el;
+}
+
+// ── Open post / comments ──
+async function openPost(d) {
+  // mark visited
+  visitedPosts.add(d.id);
+  localStorage.setItem('visited', JSON.stringify([...visitedPosts].slice(-200)));
+
+  const view = document.getElementById('comments-view');
+  const detail = document.getElementById('post-detail');
+  const list = document.getElementById('comments-list');
+  const subLabel = document.getElementById('comments-sub');
+
+  subLabel.textContent = `r/${d.subreddit}`;
+  view.style.display = 'block';
+  view.scrollTop = 0;
+  document.body.style.overflow = 'hidden';
+
+  // Build post detail
+  const isText = d.is_self;
+  let bodyHtml = '';
+  if (isText && d.selftext) {
+    bodyHtml = `<div id="post-detail-body">${renderMarkdown(d.selftext)}</div>`;
+  } else if (!isText) {
+    bodyHtml = `<a id="post-detail-link" href="${escHtml(d.url)}" target="_blank" rel="noopener">${escHtml(d.url)}</a>`;
+  }
+
+  // big image
+  let bigImg = '';
+  if (d.preview && d.preview.images && d.preview.images[0]) {
+    const src = d.preview.images[0].source.url.replace(/&amp;/g, '&');
+    bigImg = `<img class="post-thumb" src="${src}" style="max-height:360px" loading="lazy" onerror="this.style.display='none'">`;
+  } else if (!isText && d.thumbnail && d.thumbnail.startsWith('http')) {
+    bigImg = `<img class="post-thumb" src="${d.thumbnail}" style="max-height:240px" loading="lazy" onerror="this.style.display='none'">`;
+  }
+
+  detail.innerHTML = `
+    <div id="post-detail-title">${escHtml(d.title)}</div>
+    <div id="post-detail-meta">
+      <span class="post-score">▲ ${fmtNum(d.score)}</span>
+      <span class="post-comments">💬 ${fmtNum(d.num_comments)}</span>
+      <span class="post-author" style="color:var(--text3);font-family:var(--font-mono);font-size:11px">u/${escHtml(d.author)} · ${timeAgo(d.created_utc)}</span>
+    </div>
+    ${bigImg}
+    ${bodyHtml}
+  `;
+
+  list.innerHTML = `<div class="loader"><span></span><span></span><span></span></div>`;
+  document.getElementById('comments-count-label').textContent = 'comments';
+
+  try {
+    const url = `https://old.reddit.com/r/${d.subreddit}/comments/${d.id}.json?raw_json=1&limit=100`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const comments = data[1].data.children;
+    const opName = d.author;
+
+    document.getElementById('comments-count-label').textContent = `${d.num_comments} comments`;
+    list.innerHTML = '';
+    renderComments(comments, list, 0, opName);
+  } catch(e) {
+    list.innerHTML = `<div class="error-msg">Couldn't load comments</div>`;
+  }
+}
+
+function closeComments() {
+  document.getElementById('comments-view').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// ── Render comments recursively ──
+function renderComments(comments, container, depth, opName) {
+  comments.forEach(c => {
+    if (c.kind === 'more') {
+      if (c.data.count > 0) {
+        const more = document.createElement('div');
+        more.className = 'comment';
+        more.style.marginLeft = `${Math.min(depth, 4) * 16}px`;
+        more.innerHTML = `<span style="font-family:var(--font-mono);font-size:11px;color:var(--text3)">+ ${c.data.count} more</span>`;
+        container.appendChild(more);
+      }
+      return;
+    }
+    const d = c.data;
+    if (!d || !d.body || d.body === '[deleted]' || d.body === '[removed]') return;
+
+    const el = document.createElement('div');
+    const depthClass = `depth-${Math.min(depth, 4)}`;
+    el.className = `comment ${depthClass}`;
+    if (depth > 0) el.style.marginLeft = `${Math.min(depth, 4) * 16}px`;
+
+    const isOP = d.author === opName;
+    const age = timeAgo(d.created_utc);
+    const score = d.score_hidden ? '·' : fmtNum(d.score);
+
+    el.innerHTML = `
+      <div class="comment-meta">
+        <span class="comment-author${isOP ? ' op' : ''}">${escHtml(d.author)}${isOP ? ' [OP]' : ''}</span>
+        <span class="comment-score">▲ ${score}</span>
+        <span class="comment-age">${age}</span>
+      </div>
+      <div class="comment-body">${renderMarkdown(d.body)}</div>
+    `;
+
+    // collapse button for top-level
+    if (depth === 0 && d.replies && d.replies.data && d.replies.data.children.length > 0) {
+      const colBtn = document.createElement('button');
+      colBtn.className = 'collapse-btn';
+      colBtn.textContent = '− collapse';
+      const childWrap = document.createElement('div');
+      let collapsed = false;
+      colBtn.addEventListener('click', () => {
+        collapsed = !collapsed;
+        childWrap.style.display = collapsed ? 'none' : '';
+        colBtn.textContent = collapsed ? '+ expand' : '− collapse';
+      });
+      el.appendChild(colBtn);
+      container.appendChild(el);
+      renderComments(d.replies.data.children, childWrap, depth + 1, opName);
+      container.appendChild(childWrap);
+    } else {
+      container.appendChild(el);
+      if (d.replies && d.replies.data && d.replies.data.children.length > 0) {
+        renderComments(d.replies.data.children, container, depth + 1, opName);
+      }
+    }
+  });
+}
+
+// ── Saved subs ──
+function openSaved() {
+  document.getElementById('save-sub-name').textContent = currentSub;
+  renderSavedList();
+  document.getElementById('saved-sheet').classList.add('open');
+}
+
+function closeSaved() {
+  document.getElementById('saved-sheet').classList.remove('open');
+}
+
+function renderSavedList() {
+  const list = document.getElementById('saved-list');
+  list.innerHTML = '';
+  if (savedSubs.length === 0) {
+    list.innerHTML = `<div style="font-family:var(--font-mono);font-size:12px;color:var(--text3);padding:10px 0">No saved subreddits yet</div>`;
+    return;
+  }
+  savedSubs.forEach(sub => {
+    const el = document.createElement('div');
+    el.className = 'saved-sub';
+    el.innerHTML = `<span class="saved-sub-name"><span>r/</span>${escHtml(sub)}</span><button class="remove-sub" data-sub="${escHtml(sub)}">×</button>`;
+    el.querySelector('.saved-sub-name').addEventListener('click', () => { closeSaved(); loadSub(sub); });
+    el.querySelector('.remove-sub').addEventListener('click', e => { e.stopPropagation(); removeSub(sub); });
+    list.appendChild(el);
+  });
+}
+
+function saveCurrentSub() {
+  if (!savedSubs.includes(currentSub)) {
+    savedSubs.push(currentSub);
+    localStorage.setItem('savedSubs', JSON.stringify(savedSubs));
+    renderSavedList();
+  }
+}
+
+function removeSub(sub) {
+  savedSubs = savedSubs.filter(s => s !== sub);
+  localStorage.setItem('savedSubs', JSON.stringify(savedSubs));
+  renderSavedList();
+}
+
+// ── Helpers ──
+function timeAgo(utc) {
+  const s = Math.floor(Date.now()/1000 - utc);
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s/60)}m`;
+  if (s < 86400) return `${Math.floor(s/3600)}h`;
+  if (s < 604800) return `${Math.floor(s/86400)}d`;
+  if (s < 2592000) return `${Math.floor(s/604800)}w`;
+  return `${Math.floor(s/2592000)}mo`;
+}
+
+function fmtNum(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'm';
+  if (n >= 1000) return (n/1000).toFixed(1) + 'k';
+  return n.toString();
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Basic markdown → HTML (enough for Reddit comments)
+function renderMarkdown(text) {
+  if (!text) return '';
+  let t = escHtml(text);
+  // code blocks
+  t = t.replace(/```[\s\S]*?```/g, m => `<pre><code>${m.slice(3,-3)}</code></pre>`);
+  // inline code
+  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // bold
+  t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  // italic
+  t = t.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  t = t.replace(/_([^_]+)_/g, '<em>$1</em>');
+  // links
+  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  // bare urls
+  t = t.replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  // blockquote
+  t = t.replace(/^&gt;(.+)$/gm, '<blockquote>$1</blockquote>');
+  // strikethrough
+  t = t.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+  // paragraphs
+  t = t.split(/\n\n+/).map(p => `<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+  return t;
+}
+
+// ── Start ──
+loadFeed(true);
+</script>
+</body>
+</html>
