@@ -772,8 +772,9 @@ async function loadFeed(reset = false) {
   }
 
   const sort = currentSort;
-  let url = `https://www.reddit.com/r/${currentSub}/${sort}.json?limit=25&raw_json=1`;
-  if (after) url += `&after=${after}`;
+  let redditUrl = `https://www.reddit.com/r/${currentSub}/${sort}.json?limit=25&raw_json=1`;
+  if (after) redditUrl += `&after=${after}`;
+  let url = `https://corsproxy.io/?url=${encodeURIComponent(redditUrl)}`;
 
   try {
     const res = await fetch(url);
@@ -910,7 +911,7 @@ async function openPost(d) {
   document.getElementById('comments-count-label').textContent = 'comments';
 
   try {
-    const url = `https://www.reddit.com/r/${d.subreddit}/comments/${d.id}.json?raw_json=1&limit=100`;
+    const url = `https://corsproxy.io/?url=${encodeURIComponent(`https://www.reddit.com/r/${d.subreddit}/comments/${d.id}.json?raw_json=1&limit=100`)}`;
     const res = await fetch(url);
     const data = await res.json();
     const comments = data[1].data.children;
