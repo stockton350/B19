@@ -772,7 +772,7 @@ async function loadFeed(reset = false) {
   }
 
   const sort = currentSort;
-  let url = `https://old.reddit.com/r/${currentSub}/${sort}.json?limit=25&raw_json=1`;
+  let url = `https://www.reddit.com/r/${currentSub}/${sort}.json?limit=25&raw_json=1`;
   if (after) url += `&after=${after}`;
 
   try {
@@ -910,7 +910,7 @@ async function openPost(d) {
   document.getElementById('comments-count-label').textContent = 'comments';
 
   try {
-    const url = `https://old.reddit.com/r/${d.subreddit}/comments/${d.id}.json?raw_json=1&limit=100`;
+    const url = `https://www.reddit.com/r/${d.subreddit}/comments/${d.id}.json?raw_json=1&limit=100`;
     const res = await fetch(url);
     const data = await res.json();
     const comments = data[1].data.children;
