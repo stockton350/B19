@@ -639,7 +639,7 @@
     <span id="sub-prefix">r/</span>
     <input id="sub-input" type="text" placeholder="subreddit" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
   </div>
-  <button id="sort-btn" onclick="toggleSort()">↕ <span id="sort-label">hot</span></button>
+  <button id="sort-btn" onclick="toggleSort()">&#x2195; <span id="sort-label">hot</span></button>
 </div>
 
 <!-- Sort drawer -->
@@ -772,8 +772,9 @@ async function loadFeed(reset = false) {
   }
 
   const sort = currentSort;
-  let url = `https://old.reddit.com/r/${currentSub}/${sort}.json?limit=25&raw_json=1`;
-  if (after) url += `&after=${after}`;
+  let redditUrl = `https://www.reddit.com/r/${currentSub}/${sort}.json?limit=25&raw_json=1`;
+  if (after) redditUrl += `&after=${after}`;
+  let url = `https://corsproxy.io/?url=${encodeURIComponent(redditUrl)}`;
 
   try {
     const res = await fetch(url);
@@ -792,7 +793,7 @@ async function loadFeed(reset = false) {
 
     posts.forEach((p, i) => {
       const d = p.data;
-      if (d.stickied && reset && i < 2) return; // skip stickies
+      if (d.stickied && reset && i < 2) return;
       feed.appendChild(buildPost(d));
     });
 
@@ -822,7 +823,6 @@ function buildPost(d) {
   // thumbnail
   let thumbHtml = '';
   if (!isText && d.thumbnail && d.thumbnail.startsWith('http')) {
-    // use preview image if available for better quality
     let imgSrc = d.thumbnail;
     if (d.preview && d.preview.images && d.preview.images[0]) {
       const imgs = d.preview.images[0].resolutions;
@@ -863,7 +863,6 @@ function buildPost(d) {
 
 // ── Open post / comments ──
 async function openPost(d) {
-  // mark visited
   visitedPosts.add(d.id);
   localStorage.setItem('visited', JSON.stringify([...visitedPosts].slice(-200)));
 
@@ -877,7 +876,6 @@ async function openPost(d) {
   view.scrollTop = 0;
   document.body.style.overflow = 'hidden';
 
-  // Build post detail
   const isText = d.is_self;
   let bodyHtml = '';
   if (isText && d.selftext) {
@@ -886,7 +884,6 @@ async function openPost(d) {
     bodyHtml = `<a id="post-detail-link" href="${escHtml(d.url)}" target="_blank" rel="noopener">${escHtml(d.url)}</a>`;
   }
 
-  // big image
   let bigImg = '';
   if (d.preview && d.preview.images && d.preview.images[0]) {
     const src = d.preview.images[0].source.url.replace(/&amp;/g, '&');
@@ -910,7 +907,7 @@ async function openPost(d) {
   document.getElementById('comments-count-label').textContent = 'comments';
 
   try {
-    const url = `https://old.reddit.com/r/${d.subreddit}/comments/${d.id}.json?raw_json=1&limit=100`;
+    const url = `https://corsproxy.io/?url=${encodeURIComponent(`https://www.reddit.com/r/${d.subreddit}/comments/${d.id}.json?raw_json=1&limit=100`)}`;
     const res = await fetch(url);
     const data = await res.json();
     const comments = data[1].data.children;
@@ -963,7 +960,6 @@ function renderComments(comments, container, depth, opName) {
       <div class="comment-body">${renderMarkdown(d.body)}</div>
     `;
 
-    // collapse button for top-level
     if (depth === 0 && d.replies && d.replies.data && d.replies.data.children.length > 0) {
       const colBtn = document.createElement('button');
       colBtn.className = 'collapse-btn';
@@ -1056,25 +1052,16 @@ function escHtml(s) {
 function renderMarkdown(text) {
   if (!text) return '';
   let t = escHtml(text);
-  // code blocks
   t = t.replace(/```[\s\S]*?```/g, m => `<pre><code>${m.slice(3,-3)}</code></pre>`);
-  // inline code
   t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // bold
   t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   t = t.replace(/__([^_]+)__/g, '<strong>$1</strong>');
-  // italic
   t = t.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   t = t.replace(/_([^_]+)_/g, '<em>$1</em>');
-  // links
   t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-  // bare urls
   t = t.replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
-  // blockquote
   t = t.replace(/^&gt;(.+)$/gm, '<blockquote>$1</blockquote>');
-  // strikethrough
   t = t.replace(/~~([^~]+)~~/g, '<del>$1</del>');
-  // paragraphs
   t = t.split(/\n\n+/).map(p => `<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
   return t;
 }
